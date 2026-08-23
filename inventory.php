@@ -1,4 +1,6 @@
 <?php
+ob_start();
+
 include 'db.php';
 
 // -------------------------------------------------------------------------
@@ -295,6 +297,79 @@ $next_feed_batch = getNextSupplyBatch($conn,"FD");
 $next_tray_batch = getNextSupplyBatch($conn,"TR");
 
 $next_medicine_batch = getNextSupplyBatch($conn,"MD");
+
+
+// -------------------------------------------------------------------------
+// 3. INVENTORY NOTIFICATIONS - LOW STOCK ALERTS
+// -------------------------------------------------------------------------
+
+$low_stock_threshold = 10;
+$inventory_notifications = array();
+
+
+// =========================
+// LOW EGG STOCK
+// =========================
+
+$egg_notification_query = mysqli_query($conn,"
+    SELECT egg_size, current_stock
+    FROM egg_inventory
+    WHERE id IN (
+        SELECT MAX(id)
+        FROM egg_inventory
+        GROUP BY egg_size
+    )
+    AND current_stock <= $low_stock_threshold
+    ORDER BY current_stock ASC
+");
+
+if($egg_notification_query){
+
+    while($row = mysqli_fetch_assoc($egg_notification_query)){
+
+        $inventory_notifications[] = array(
+            'type' => 'Eggs',
+            'item' => $row['egg_size'],
+            'stock' => $row['current_stock']
+        );
+
+    }
+
+}
+
+
+// =========================
+// LOW SUPPLY STOCK
+// =========================
+
+$supply_notification_query = mysqli_query($conn,"
+    SELECT item_category, item_name, current_stock
+    FROM supply_inventory
+    WHERE id IN (
+        SELECT MAX(id)
+        FROM supply_inventory
+        GROUP BY item_category, item_name
+    )
+    AND current_stock <= $low_stock_threshold
+    ORDER BY current_stock ASC
+");
+
+if($supply_notification_query){
+
+    while($row = mysqli_fetch_assoc($supply_notification_query)){
+
+        $inventory_notifications[] = array(
+            'type' => $row['item_category'],
+            'item' => $row['item_name'],
+            'stock' => $row['current_stock']
+        );
+
+    }
+
+}
+
+$notification_count = count($inventory_notifications);
+?>
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -304,29 +379,742 @@ $next_medicine_batch = getNextSupplyBatch($conn,"MD");
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .dashboard-header { background-color: #ffffff; padding: 15px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .card-header { background-color: #ffffff; border-bottom: 1px solid #f3f4f6; font-weight: bold; font-size: 1.1rem; padding: 15px; border-top-left-radius: 12px !important; border-top-right-radius: 12px !important; }
-        .table th { background-color: #f9fafb; color: #4b5563; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
-        .table td { vertical-align: middle; font-size: 0.9rem; }
-        .btn-custom-blue { background-color: #4682b4; color: white; }
-        .btn-custom-blue:hover { background-color: #356a93; color: white; }
-        .btn-custom-danger { background-color: #cd5c5c; color: white; }
-        .btn-custom-danger:hover { background-color: #b04f4f; color: white; }
-        .supply-icon-card { text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa; }
-        .supply-icon-card i { font-size: 2rem; color: #4b5563; }
-        .status-badge-fan { background-color: #e6f7ed; color: #1f9254; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+       body {
+    background-color: #f3f4f6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* =========================
+   INVENTORY OUTER CARD
+   ========================= */
+.inventory-outer-card {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    padding: 0;
+    margin-bottom: 25px;
+    overflow: hidden;
+}
+.inventory-outer-card > .container-fluid {
+    padding-top: 18px;
+    padding-bottom: 18px;
+}
+/* =========================
+   MAIN CARDS INSIDE INVENTORY
+   ========================= */
+.row > .col-lg-6 {
+    display: flex;
+}
+
+.row > .col-lg-6 > .card {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+    margin-bottom: 18px;
+}
+
+.row > .col-lg-6 > .card .card-body {
+    flex: 1;
+}
+
+.card-header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #f0f1f3;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 12px 14px;
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+}
+
+.card-header small {
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.card-body {
+    padding: 14px;
+}
+
+/* =========================
+   GENERAL TEXT
+   ========================= */
+body,
+.form-control,
+.form-select,
+.btn {
+    font-size: 0.82rem;
+}
+
+h6 {
+    font-size: 0.88rem;
+}
+
+.small {
+    font-size: 0.75rem !important;
+}
+
+/* =========================
+   TABLE TEXT
+   ========================= */
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f9fafb;
+    color: #4b5563;
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 8px 9px;
+}
+
+.table td {
+    vertical-align: middle;
+    font-size: 0.78rem;
+    padding: 8px 9px;
+}
+
+/* =========================
+   SEARCH BOX
+   ========================= */
+.input-group .form-control {
+    font-size: 0.8rem;
+    padding: 7px 10px;
+}
+
+.input-group .btn {
+    font-size: 0.78rem;
+    padding: 7px 11px;
+}
+
+/* =========================
+   BUTTONS
+   ========================= */
+.btn-sm {
+    font-size: 0.76rem !important;
+    padding: 6px 10px;
+}
+
+.btn-custom-blue {
+    background-color: #4682b4;
+    color: white;
+}
+
+.btn-custom-blue:hover {
+    background-color: #356a93;
+    color: white;
+}
+
+.btn-custom-danger {
+    background-color: #cd5c5c;
+    color: white;
+}
+
+.btn-custom-danger:hover {
+    background-color: #b04f4f;
+    color: white;
+}
+
+/* =========================
+   SUPPLY ICON CARDS
+   ========================= */
+.supply-icon-card {
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+.supply-icon-card i {
+    font-size: 1.45rem;
+    color: #4b5563;
+}
+
+.supply-icon-card .small {
+    font-size: 0.74rem !important;
+}
+
+/* =========================
+   BADGES
+   ========================= */
+.badge {
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 4px 7px;
+}
+
+.status-badge-fan {
+    background-color: #e6f7ed;
+    color: #1f9254;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+/* =========================
+   CATEGORY REPORT BUTTONS
+   ========================= */
+.category-report-btn {
+    font-size: 0.78rem;
+}
+
+.category-report-btn strong {
+    font-size: 0.95rem !important;
+}
+
+.category-report-btn i {
+    font-size: 1.5rem !important;
+}
+
+/* =========================
+   MODAL TEXT
+   ========================= */
+.modal-title {
+    font-size: 0.95rem;
+}
+
+.modal-body,
+.modal-footer {
+    font-size: 0.82rem;
+}
+
+.form-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+
+/* =========================
+   INVENTORY PAGE HEADER
+   ========================= */
+.inventory-page-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 25px 30px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.inventory-header-left h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #172033;
+}
+
+.inventory-header-left p {
+    margin: 8px 0 0;
+    font-size: 0.9rem;
+    color: #64748b;
+}
+
+.inventory-header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+/* =========================
+   NOTIFICATION BELL
+   ========================= */
+
+.notification-wrapper {
+    position: relative;
+}
+
+.notification-icon {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border: 1px solid #e5e7eb;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f0a53a;
+    background: #ffffff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.notification-icon:hover {
+    background: #fffaf2;
+    border-color: #f0a53a;
+}
+
+.notification-icon:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(240,165,58,0.15);
+}
+
+
+/* =========================
+   NOTIFICATION BADGE
+   ========================= */
+
+.notification-badge {
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 1px 5px;
+    border-radius: 20px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-align: center;
+    line-height: 16px;
+}
+
+
+/* =========================
+   NOTIFICATION DROPDOWN
+   ========================= */
+
+.notification-dropdown {
+    display: none;
+    position: absolute;
+    top: 58px;
+    right: 0;
+    width: 350px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.notification-dropdown.show {
+    display: block;
+}
+
+
+/* =========================
+   NOTIFICATION HEADER
+   ========================= */
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f1f3;
+    background: #ffffff;
+}
+
+.notification-header strong {
+    display: block;
+    color: #172033;
+    font-size: 0.85rem;
+}
+
+.notification-header small {
+    display: block;
+    color: #64748b;
+    font-size: 0.7rem;
+    margin-top: 2px;
+}
+
+.notification-total {
+    min-width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fee2e2;
+    color: #dc2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+
+/* =========================
+   NOTIFICATION LIST
+   ========================= */
+
+.notification-list {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+
+/* =========================
+   NOTIFICATION ITEM
+   ========================= */
+
+.notification-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: 0.2s ease;
+}
+
+.notification-item:hover {
+    background: #f8fafc;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+
+/* =========================
+   NOTIFICATION ICON
+   ========================= */
+
+.notification-item-icon {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 50%;
+    background: #fff7ed;
+    color: #f97316;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+
+/* =========================
+   NOTIFICATION CONTENT
+   ========================= */
+
+.notification-item-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.notification-item-content strong {
+    color: #172033;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.notification-item-content span {
+    color: #64748b;
+    font-size: 0.68rem;
+    margin-top: 1px;
+}
+
+.notification-item-content small {
+    color: #475569;
+    font-size: 0.68rem;
+    margin-top: 2px;
+}
+
+
+/* =========================
+   LOW STOCK LABEL
+   ========================= */
+
+.low-stock-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: #dc2626;
+    background: #fee2e2;
+    padding: 4px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+
+/* =========================
+   EMPTY NOTIFICATION
+   ========================= */
+
+.notification-empty {
+    padding: 28px 18px;
+    text-align: center;
+}
+
+.notification-empty i {
+    display: block;
+    font-size: 1.8rem;
+    color: #22c55e;
+    margin-bottom: 8px;
+}
+
+.notification-empty strong {
+    display: block;
+    font-size: 0.8rem;
+    color: #172033;
+}
+
+.notification-empty span {
+    display: block;
+    font-size: 0.68rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+
+/* =========================
+   NOTIFICATION FOOTER
+   ========================= */
+
+.notification-footer {
+    padding: 9px 14px;
+    border-top: 1px solid #f0f1f3;
+    background: #f9fafb;
+    color: #64748b;
+    font-size: 0.65rem;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 1px 5px;
+    border-radius: 20px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-align: center;
+    line-height: 16px;
+}
+
+.manager-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #e6f4ea;
+    color: #2f8f57;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.manager-account {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 125px;
+}
+
+.manager-account strong {
+    font-size: 0.85rem;
+    color: #172033;
+}
+
+.manager-account span {
+    font-size: 0.72rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.manager-account small {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #198754;
+    margin-top: 2px;
+}
+
+.account-arrow {
+    color: #475569;
+    font-size: 0.75rem;
+    margin-left: 2px;
+}
     </style>
 </head>
 <body>
 
 <!-- TOP NAVBAR HEADER -->
+<?php include('manager_panel.php'); ?>
+
+<div class="main-content">
+
+    <!-- ==================== INVENTORY OUTER CARD ==================== -->
+    <div class="inventory-outer-card">
+
+        <!-- ==================== INVENTORY PAGE HEADER ==================== -->
+        <div class="inventory-page-header">
+
+            <div class="inventory-header-left">
+                <h1>Inventory Management</h1>
+                <p>Manage egg and supply inventory, stock movements, and inventory records</p>
+            </div>
+
+            <div class="inventory-header-right">
+
+              <div class="notification-wrapper">
+
+    <button
+        type="button"
+        class="notification-icon"
+        id="notificationBell"
+        aria-label="Inventory Notifications">
+
+        <i class="fa-solid fa-bell"></i>
+
+        <?php if($notification_count > 0){ ?>
+
+            <span class="notification-badge">
+                <?php echo $notification_count; ?>
+            </span>
+
+        <?php } ?>
+
+    </button>
 
 
-<div class="container-fluid px-4">
-    <div class="row">
-        
+    <!-- =========================
+         NOTIFICATION DROPDOWN
+         ========================= -->
+
+    <div class="notification-dropdown" id="notificationDropdown">
+
+        <div class="notification-header">
+
+            <div>
+                <strong>Inventory Notifications</strong>
+                <small>Low stock alerts</small>
+            </div>
+
+            <span class="notification-total">
+                <?php echo $notification_count; ?>
+            </span>
+
+        </div>
+
+
+        <div class="notification-list">
+
+            <?php if($notification_count > 0){ ?>
+
+                <?php foreach($inventory_notifications as $notification){ ?>
+
+                    <div class="notification-item">
+
+                        <div class="notification-item-icon">
+
+                            <?php
+                            if($notification['type'] == 'Eggs'){
+                                echo '<i class="fa-solid fa-egg"></i>';
+                            }
+                            elseif($notification['type'] == 'Feeds'){
+                                echo '<i class="fa-solid fa-wheat-awn"></i>';
+                            }
+                            elseif($notification['type'] == 'Trays'){
+                                echo '<i class="fa-solid fa-boxes-stacked"></i>';
+                            }
+                            else{
+                                echo '<i class="fa-solid fa-prescription-bottle-medical"></i>';
+                            }
+                            ?>
+
+                        </div>
+
+
+                        <div class="notification-item-content">
+
+                            <strong>
+                                <?php echo htmlspecialchars($notification['item']); ?>
+                            </strong>
+
+                            <span>
+                                <?php echo htmlspecialchars($notification['type']); ?>
+                            </span>
+
+                            <small>
+                                Current stock:
+                                <b><?php echo number_format($notification['stock']); ?></b>
+                            </small>
+
+                        </div>
+
+
+                        <div class="low-stock-label">
+                            Low Stock
+                        </div>
+
+                    </div>
+
+                <?php } ?>
+
+            <?php } else { ?>
+
+                <div class="notification-empty">
+
+                    <i class="fa-solid fa-circle-check"></i>
+
+                    <strong>No low stock alerts</strong>
+
+                    <span>
+                        All inventory stocks are currently sufficient.
+                    </span>
+
+                </div>
+
+            <?php } ?>
+
+        </div>
+
+
+        <div class="notification-footer">
+
+            <span>
+                Threshold: <?php echo $low_stock_threshold; ?> or below
+            </span>
+
+        </div>
+
+    </div>
+
+</div>
+
+                <div class="manager-avatar">
+                    MA
+                </div>
+
+                <div class="manager-account">
+                    <strong>Manager Account</strong>
+                    <span>Manager</span>
+                    <span><?php echo date('F d, Y'); ?></span>
+                    <small id="inventoryClock"></small>
+                </div>
+
+                <div class="account-arrow">
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ==================== INVENTORY CONTENT ==================== -->
+        <div class="container-fluid px-4">
+
+        <div class="row">
         <!-- ==================== LEFT COLUMN: EGGS COMPREHENSIVE CONTROL ==================== -->
         <div class="col-lg-6">
             <div class="card">
@@ -354,7 +1142,7 @@ value="<?php echo htmlspecialchars($egg_search); ?>">
 </div>
 
 </form>
-                    <div class="table-responsive" style="max-height: 300px;">
+                   <div class="table-responsive" style="height: 375px; overflow-y: auto;">
                       <table id="eggTable" class="table table-hover align-middle">
                            <thead>
 
@@ -512,7 +1300,7 @@ class="btn btn-primary">
 </div>
 
 </form>
-                    <div class="table-responsive" style="max-height: 200px;">
+                   <div class="table-responsive" style="height: 300px; overflow-y: auto;">
                       <table id="supplyTable" class="table table-hover align-middle">
                             <thead>
     <tr>
@@ -763,7 +1551,7 @@ $query.=" ORDER BY date_logged DESC";
         </div>
     </div>
 </div>
-
+</div>
 <div class="modal fade" id="eggModal" tabindex="-1">
     <div class="modal-dialog">
         <form method="POST" class="modal-content">
@@ -893,7 +1681,7 @@ $query.=" ORDER BY date_logged DESC";
         </form>
     </div>
 </div>
-
+</div>
 <!-- ==================== SUPPLY INVENTORY MODAL ==================== -->
 <div class="modal fade" id="supplyModal" tabindex="-1">
 
@@ -1214,6 +2002,64 @@ eggSearch.addEventListener("keypress", function(e){
     }
 
 });
+
+
+
+function updateInventoryClock() {
+
+    var now = new Date();
+
+    var time = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+
+    document.getElementById('inventoryClock').innerHTML = time;
+}
+
+updateInventoryClock();
+
+setInterval(updateInventoryClock, 1000);
+
+
+
+
+/* =========================================================
+   INVENTORY NOTIFICATION BELL
+   ========================================================= */
+
+var notificationBell = document.getElementById("notificationBell");
+var notificationDropdown = document.getElementById("notificationDropdown");
+
+
+if(notificationBell && notificationDropdown){
+
+    notificationBell.addEventListener("click", function(event){
+
+        event.stopPropagation();
+
+        notificationDropdown.classList.toggle("show");
+
+    });
+
+
+    document.addEventListener("click", function(event){
+
+        if(
+            !notificationDropdown.contains(event.target) &&
+            !notificationBell.contains(event.target)
+        ){
+
+            notificationDropdown.classList.remove("show");
+
+        }
+
+    });
+
+}
+
+
 
 </script>
 </body>

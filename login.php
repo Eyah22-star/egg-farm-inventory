@@ -102,16 +102,32 @@
             color: #a0b0b5;
         }
 
+        /* Password Eye Icon */
+.password-group .password-toggle {
+    left: auto;
+    right: 15px;
+    cursor: pointer;
+    color: #8fa0a6;
+    font-size: 15px;
+}
+
+.password-group .password-toggle:hover {
+    color: #1e4473;
+}
+
+.password-group .form-control {
+    padding-right: 45px;
+}
+
         /* Utilities Row (Remember me & Forgot Password) */
         .form-utilities {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 12px;
-            color: #4a5568;
-            margin-bottom: 25px;
-            padding: 0 2px;
-        }
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    font-size: 12px;
+    margin-bottom: 25px;
+    padding: 0 2px;
+}
 
         .remember-me {
             display: flex;
@@ -199,20 +215,22 @@
                    placeholder="Username" 
                    required>
         </div>
+<div class="form-group password-group"> 
+    <i class="fa-solid fa-lock"></i> 
+    <input type="password"  
+           name="password"  
+           id="password"
+           class="form-control"  
+           placeholder="Password"  
+           required>
 
-        <div class="form-group">
-            <i class="fa-solid fa-lock"></i>
-            <input type="password" 
-                   name="password" 
-                   class="form-control" 
-                   placeholder="Password" 
-                   required>
-        </div>
+    <i class="fa-solid fa-eye password-toggle"
+       id="passwordToggle"
+       onclick="togglePassword()"></i>
+</div>
 
         <div class="form-utilities">
-            <label class="remember-me">
-                <input type="checkbox" name="remember"> Remember me
-            </label>
+           
             <a href="#" class="forgot-link">Forgot Password?</a>
         </div>
 
@@ -226,6 +244,19 @@
     </div>
 
 </div>
+<script>
+function togglePassword() {
+    var password = document.getElementById("password");
+    var toggle = document.getElementById("passwordToggle");
 
+    if (password.type === "password") {
+        password.type = "text";
+        toggle.className = "fa-solid fa-eye-slash password-toggle";
+    } else {
+        password.type = "password";
+        toggle.className = "fa-solid fa-eye password-toggle";
+    }
+}
+</script>
 </body>
 </html>

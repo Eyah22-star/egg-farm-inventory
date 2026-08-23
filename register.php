@@ -227,16 +227,18 @@
                    required>
         </div>
 
-        <div class="form-group">
-            <i class="fa-solid fa-lock input-icon"></i>
-            <input type="password" 
-                   name="password" 
-                   id="passwordField"
-                   class="form-control" 
-                   placeholder="Password" 
-                   required>
-            <i class="fa-regular fa-eye toggle-password" id="togglePasswordIcon"></i>
-        </div>
+       <div class="form-group password-group"> 
+    <i class="fa-solid fa-lock input-icon"></i> 
+    <input type="password"  
+           name="password"  
+           id="passwordField" 
+           class="form-control"  
+           placeholder="Password"  
+           required> 
+
+    <i class="fa-solid fa-eye toggle-password" 
+       id="togglePasswordIcon"></i>
+</div>
 
         <button type="submit" class="btn-submit">Register</button>
 
@@ -263,42 +265,81 @@
         this.classList.toggle('fa-eye-slash');
     });
 
-    // 2. AJAX SUBMISSION TO PREVENT PAGE RELOAD & ACCURATE FIELD WIPING
-    const registrationForm = document.getElementById('registrationForm');
-    const toastNotification = document.getElementById('toastNotification');
+   // 2. AJAX SUBMISSION
+const registrationForm = document.getElementById('registrationForm');
+const toastNotification = document.getElementById('toastNotification');
 
-    registrationForm.addEventListener('submit', function (e) {
-        e.preventDefault(); // Pipigilan nito ang pag-refresh o paglipat ng page
+registrationForm.addEventListener('submit', function (e) {
 
-        // Kukunin ang lahat ng inputs sa form
-        const formData = new FormData(this);
+    e.preventDefault();
 
-        // Ipapasa ang data sa register_process.php sa background sa pamamagitan ng fetch API
-        fetch('register_process.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            // Lalabas ang notification popup sa screen
+    const formData = new FormData(this);
+
+    fetch('register_process.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
+
+        // Show the message from register_process.php
+        toastNotification.textContent = data.message;
+
+        // SUCCESS
+        if(data.status === 'success') {
+
+            toastNotification.style.backgroundColor = '#2ec4b6';
+
             toastNotification.classList.add('show');
-            
-            // Automatic na burahin ang lahat ng nilalaman ng inputs (Clear inputs)
+
+            // Clear all inputs ONLY after successful registration
             registrationForm.reset();
-            
-            // Siguraduhing bumalik sa 'password' mask ang field kung naka-show password ito
+
+            // Reset password field to hidden
             passwordField.setAttribute('type', 'password');
+
+            // Reset eye icon
             togglePasswordIcon.classList.add('fa-eye');
             togglePasswordIcon.classList.remove('fa-eye-slash');
 
-            // Pagkatapos ng 3 segundo, mawawala ulit ang notification box
-            setTimeout(() => {
-                toastNotification.classList.remove('show');
-            }, 3000);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
+        }
+
+        // ERROR
+        else {
+
+            toastNotification.style.backgroundColor = '#e74c3c';
+
+            toastNotification.classList.add('show');
+
+            // DO NOT clear the form
+            // User can correct the username/email
+        }
+
+        // Hide notification after 3 seconds
+        setTimeout(function() {
+            toastNotification.classList.remove('show');
+        }, 3000);
+
+    })
+    .catch(function(error) {
+
+        console.error('Error:', error);
+
+        toastNotification.textContent =
+            'Something went wrong. Please try again.';
+
+        toastNotification.style.backgroundColor = '#e74c3c';
+
+        toastNotification.classList.add('show');
+
+        setTimeout(function() {
+            toastNotification.classList.remove('show');
+        }, 3000);
     });
+
+});
 </script>
 
 </body>

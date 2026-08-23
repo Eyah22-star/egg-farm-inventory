@@ -1,21 +1,17 @@
 <?php
-if (!isset($_SESSION)) {
+
+if (session_id() == '') {
     session_start();
 }
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] != 'manager') {
-    header("Location: login.php");
-    exit();
-}
-
 $current = basename($_SERVER['PHP_SELF']);
+
 ?>
 
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <style>
-
 
 *{
     box-sizing:border-box;
@@ -35,6 +31,7 @@ $current = basename($_SERVER['PHP_SELF']);
     top:0;
     overflow:hidden;
 }
+
 .logo-section{
     text-align:center;
     margin-bottom:35px;
@@ -63,6 +60,7 @@ $current = basename($_SERVER['PHP_SELF']);
    flex:1;
     padding:0;
 }
+
 .menu-item{
     display:flex;
     align-items:center;
@@ -92,7 +90,6 @@ $current = basename($_SERVER['PHP_SELF']);
     color:#1e4473;
     font-weight:600;
 }
-
 .logout-section {
     margin-top: auto;
     margin-bottom: 190px;
@@ -140,57 +137,45 @@ $current = basename($_SERVER['PHP_SELF']);
     <div class="logo-section">
         <img src="/EggFarm/vdvc.png" class="logo-img">
         <div class="panel-title">
-            Manager Panel
+            Customer Panel
         </div>
     </div>
 
     <ul class="menu-list">
 
-        <a href="manager_dashboard.php"
-        class="menu-item <?=($current=='register.php')?'active':'';?>">
+        <!-- Dashboard -->
+       <a href="customer_dashboard.php"
+class="menu-item <?=($current=='customer_dashboard.php') ? 'active' : '';?>">
 
             <i class="fa-solid fa-chart-pie"></i>
             Dashboard
 
         </a>
 
-        <a href="inventory.php"
-        class="menu-item <?=($current=='inventory.php')?'active':'';?>">
-
-            <i class="fa-solid fa-boxes-stacked"></i>
-            Inventory Management
-
-        </a>
-
-        <a href="manager_reservation.php"
-        class="menu-item <?=($current=='manager_reservation.php')?'active':'';?>">
+        <!-- Reservation -->
+        <a href="customer_reservation.php"
+        class="menu-item <?=($current=='customer_reservation.php')?'active':'';?>">
 
             <i class="fa-solid fa-calendar-check"></i>
-            Reservation Management
+            Reservation
 
         </a>
 
-        <a href="manager_delivery.php"
-        class="menu-item <?=($current=='manager_delivery.php')?'active':'';?>">
+        <!-- Reservation History -->
+        <a href="customer_history.php"
+        class="menu-item <?=($current=='customer_history.php')?'active':'';?>">
 
-            <i class="fa-solid fa-truck-ramp-box"></i>
-            Delivery Management
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            Reservation History
 
         </a>
 
-        <a href="profile.php"
-        class="menu-item <?=($current=='profile.php')?'active':'';?>">
+        <!-- Profile -->
+        <a href="customer_profile.php"
+        class="menu-item <?=($current=='customer_profile.php')?'active':'';?>">
 
             <i class="fa-solid fa-user-gear"></i>
-            Profile Management
-
-        </a>
-
-        <a href="reports.php"
-        class="menu-item <?=($current=='reports.php')?'active':'';?>">
-
-            <i class="fa-solid fa-file-invoice-dollar"></i>
-            Reports
+            Profile
 
         </a>
 
