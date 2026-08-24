@@ -110,26 +110,6 @@ $current = basename($_SERVER['PHP_SELF']);
     padding:30px;
 }
 
-
-
-/* =========================
-   BOTTOM FARM DECORATION
-========================= */
-
-.sidebar-decoration {
-    position: absolute;
-    left: -15px;
-    bottom: -29px;
-    width: 280px;
-    line-height: 0;
-    z-index: 1;
-}
-
-.sidebar-decoration img {
-    width: 280px;
-    height: auto;
-    display: block;
-}
 </style>
 
 <nav class="sidebar">
@@ -192,8 +172,5 @@ class="menu-item <?=($current=='customer_dashboard.php') ? 'active' : '';?>">
         </div>
 
     </ul>
-<div class="sidebar-decoration">
-    <img src="/EggFarm/farm-decoration.png.png" alt="Egg Farm Illustration">
-    
-</div>
+
 </nav>

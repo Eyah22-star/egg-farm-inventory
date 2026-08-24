@@ -114,25 +114,6 @@ $current = basename($_SERVER['PHP_SELF']);
 }
 
 
-
-/* =========================
-   BOTTOM FARM DECORATION
-========================= */
-
-.sidebar-decoration {
-    position: absolute;
-    left: -15px;
-    bottom: -29px;
-    width: 280px;
-    line-height: 0;
-    z-index: 1;
-}
-
-.sidebar-decoration img {
-    width: 280px;
-    height: auto;
-    display: block;
-}
 </style>
 
 <nav class="sidebar">
@@ -186,8 +167,8 @@ $current = basename($_SERVER['PHP_SELF']);
 
         </a>
 
-        <a href="reports.php"
-        class="menu-item <?=($current=='reports.php')?'active':'';?>">
+        <a href="manager_reports.php"
+        class="menu-item <?=($current=='manager_reports.php')?'active':'';?>">
 
             <i class="fa-solid fa-file-invoice-dollar"></i>
             Reports
@@ -207,8 +188,5 @@ $current = basename($_SERVER['PHP_SELF']);
         </div>
 
     </ul>
-<div class="sidebar-decoration">
-    <img src="/EggFarm/farm-decoration.png.png" alt="Egg Farm Illustration">
-    
-</div>
+
 </nav>
