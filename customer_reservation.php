@@ -2,7 +2,19 @@
 ob_start();
 
 require 'db.php';
-
+// Helper function to get manager users
+// Helper function to get manager users
+function getManagerUsers($conn) {
+    $managers = array();  // Changed from [] to array()
+    $stmt = $conn->prepare("SELECT id FROM users WHERE role = 'manager'");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $managers[] = $row['id'];
+    }
+    $stmt->close();
+    return $managers;
+}
 // Start session to store submission status safely across redirect
 if (session_id() == '') {
     session_start();
@@ -27,7 +39,7 @@ $user_role = isset($_SESSION['role']) ? $_SESSION['role'] : 'Customer';
 
 // Helper function to insert notifications easily into the database
 function add_notification($conn, $user_id, $title, $description, $type = 'info') {
-    $stmt = $conn->prepare("INSERT INTO notifications (user_id, title, description, type) VALUES (?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO notifications (user_id, title, description, type, is_read) VALUES (?, ?, ?, ?, 0)");
     $stmt->bind_param("isss", $user_id, $title, $description, $type);
     $stmt->execute();
     $stmt->close();
@@ -208,13 +220,26 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
             $stmt->close();
 
-            add_notification(
-                $conn,
-                $user_id,
-                "Reservation submitted!",
-                "Reservation {$reservation_code} with {$total_bundle_trays} total tray(s) is waiting for manager confirmation.",
-                "success"
-            );
+// Notification to customer
+add_notification(
+    $conn,
+    $user_id,
+    "Reservation submitted!",
+    "Reservation {$reservation_code} with {$total_bundle_trays} total tray(s) is waiting for manager confirmation.",
+    "success"
+);
+
+// NOTIFY ALL MANAGERS
+$managers = getManagerUsers($conn);
+foreach ($managers as $manager_id) {
+    add_notification(
+        $conn,
+        $manager_id,
+        "New Reservation Received",
+        "Customer {$customer_name} submitted reservation {$reservation_code}. Please review and confirm.",
+        "alert"
+    );
+}
 
             $conn->commit();
 

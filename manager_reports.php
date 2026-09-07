@@ -1539,10 +1539,38 @@ body {
 body {
     min-height: 100vh;
 }
-
 .page-wrapper {
+
     width: 100%;
-    padding: 18px 14px 28px 14px;
+
+    padding:
+        22px 28px 28px;
+
+}
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+
+.main-content {
+
+    margin-left: 312px;
+
+    min-height: 100vh;
+
+    padding: 18px;
+
+    background:
+
+        linear-gradient(
+
+            135deg,
+
+            #eeece6 0%,
+
+            #f5f3ed 100%
+
+        );
+
 }
 /*
 |--------------------------------------------------------------------------
@@ -2813,7 +2841,7 @@ body {
 
 <div class="main-content">
 
-    <div class="min-h-screen p-4 md:p-6">
+    <div class="min-h-screen">
 
         <div class="reports-outer-card">
 

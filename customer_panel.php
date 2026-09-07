@@ -13,83 +13,134 @@ $current = basename($_SERVER['PHP_SELF']);
 
 <style>
 
-*{
-    box-sizing:border-box;
-    font-family:'Poppins',sans-serif;
+/* ================================
+   GLOBAL
+================================ */
+* {
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
 }
 
-.sidebar{
-    width:260px;
-    height:100vh;
-    background:#e3edf7;
-    display:flex;
-    flex-direction:column;
-    padding:30px 15px;
-    border-right:1px solid #d0dfeb;
-    position:fixed;
-    left:0;
-    top:0;
-    overflow:hidden;
+
+/* ================================
+   SIDEBAR
+================================ */
+.sidebar {
+    width: 260px;
+    height: 100vh;
+    background: #214f2c;
+    display: flex;
+    flex-direction: column;
+    padding: 30px 15px;
+    border-right: 1px solid #183d21;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow: hidden;
 }
 
-.logo-section{
-    text-align:center;
-    margin-bottom:35px;
-    padding-bottom:20px;
-    border-bottom:1px solid #c2d5e7;
+
+/* ================================
+   LOGO SECTION
+================================ */
+.logo-section {
+    text-align: center;
+    margin-bottom: 35px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-.logo-img{
-    width:85px;
-    display:block;
-    margin:auto;
+.logo-img {
+    width: 200px;
+    display: block;
+    margin: auto;
 }
 
-.panel-title{
-    color:#1e4473;
-    font-size:15px;
-    font-weight:700;
-    text-transform:uppercase;
+.panel-title {
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 5px;
 }
 
-.menu-list{
-    list-style:none;
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-   flex:1;
-    padding:0;
+
+/* ================================
+   MENU LIST
+================================ */
+.menu-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    padding: 0;
+    margin: 0;
 }
 
-.menu-item{
-    display:flex;
-    align-items:center;
-    gap:15px;
-    padding:12px 20px;
-    text-decoration:none;
-    color:#4a5568;
-    border-radius:10px;
-    font-size:14px;
-    font-weight:500;
-    transition:.2s;
+
+/* ================================
+   MENU ITEMS
+================================ */
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 13px 20px;
+    text-decoration: none;
+    color: #e8f1e9;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.25s ease;
 }
 
-.menu-item i{
-    width:25px;
-    text-align:center;
-    font-size:18px;
+
+/* ================================
+   MENU ICONS
+================================ */
+.menu-item i {
+    width: 25px;
+    text-align: center;
+    font-size: 18px;
+    color: #b8d8b0;
+    transition: all 0.25s ease;
 }
 
-.menu-item:hover{
-    background:#d7e5f2;
-    color:#1e4473;
+
+/* ================================
+   HOVER EFFECT
+================================ */
+.menu-item:hover {
+    background: #356b42;
+    color: #ffffff;
+    transform: translateX(4px);
 }
 
-.menu-item.active{
-    background:#cddceb;
-    color:#1e4473;
-    font-weight:600;
+.menu-item:hover i {
+    color: #dff3d8;
 }
+
+
+/* ================================
+   ACTIVE MENU
+================================ */
+.menu-item.active {
+    background: #ffffff;
+    color: #214f2c;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.menu-item.active i {
+    color: #214f2c;
+}
+
+
+/* ================================
+   LOGOUT SECTION
+================================ */
 .logout-section {
     margin-top: auto;
     margin-bottom: 190px;
@@ -97,80 +148,115 @@ $current = basename($_SERVER['PHP_SELF']);
     z-index: 2;
 }
 
-.btn-logout{
-    color:#e53e3e;
+
+/* ================================
+   LOGOUT BUTTON
+================================ */
+.btn-logout {
+    color: #ffd0d0;
 }
 
-.btn-logout:hover{
-    background:#fed7d7;
+.btn-logout i {
+    color: #ffaaaa;
 }
 
-.main-content{
-    margin-left:260px;
-    padding:30px;
+.btn-logout:hover {
+    background: rgba(229, 62, 62, 0.18);
+    color: #ffffff;
+    transform: translateX(4px);
+}
+
+.btn-logout:hover i {
+    color: #ffb4b4;
+}
+
+
+/* ================================
+   MAIN CONTENT
+================================ */
+.main-content {
+    margin-left: 260px;
+    padding: 30px;
 }
 
 </style>
 
+<!-- ================================
+     CUSTOMER SIDEBAR
+================================ -->
+
 <nav class="sidebar">
 
-    <div class="logo-section">
-        <img src="/EggFarm/vdvc.png" class="logo-img">
-        <div class="panel-title">
-            Customer Panel
-        </div>
+
+<!-- LOGO SECTION -->
+<div class="logo-section">
+
+    <img src="/EggFarm/vdvclogoo.png" class="logo-img">
+
+    <div class="panel-title">
+        Customer Panel
     </div>
 
-    <ul class="menu-list">
+</div>
 
-        <!-- Dashboard -->
-       <a href="customer_dashboard.php"
-class="menu-item <?=($current=='customer_dashboard.php') ? 'active' : '';?>">
 
-            <i class="fa-solid fa-chart-pie"></i>
-            Dashboard
+<!-- MENU LIST -->
+<ul class="menu-list">
+
+
+    <!-- DASHBOARD -->
+    <a href="customer_dashboard.php"
+    class="menu-item <?= ($current == 'customer_dashboard.php') ? 'active' : ''; ?>">
+
+        <i class="fa-solid fa-chart-pie"></i>
+        Dashboard
+
+    </a>
+
+
+    <!-- RESERVATION -->
+    <a href="customer_reservation.php"
+    class="menu-item <?= ($current == 'customer_reservation.php') ? 'active' : ''; ?>">
+
+        <i class="fa-solid fa-calendar-check"></i>
+        Reservation
+
+    </a>
+
+
+    <!-- RESERVATION HISTORY -->
+    <a href="customer_history.php"
+    class="menu-item <?= ($current == 'customer_history.php') ? 'active' : ''; ?>">
+
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        Reservation History
+
+    </a>
+
+
+    <!-- PROFILE -->
+    <a href="customer_profile.php"
+    class="menu-item <?= ($current == 'customer_profile.php') ? 'active' : ''; ?>">
+
+        <i class="fa-solid fa-user-gear"></i>
+        Profile
+
+    </a>
+
+
+    <!-- LOGOUT -->
+    <div class="logout-section">
+
+        <a href="logout.php" class="menu-item btn-logout">
+
+            <i class="fa-solid fa-right-from-bracket"></i>
+            Log Out
 
         </a>
 
-        <!-- Reservation -->
-        <a href="customer_reservation.php"
-        class="menu-item <?=($current=='customer_reservation.php')?'active':'';?>">
+    </div>
 
-            <i class="fa-solid fa-calendar-check"></i>
-            Reservation
-
-        </a>
-
-        <!-- Reservation History -->
-        <a href="customer_history.php"
-        class="menu-item <?=($current=='customer_history.php')?'active':'';?>">
-
-            <i class="fa-solid fa-clock-rotate-left"></i>
-            Reservation History
-
-        </a>
-
-        <!-- Profile -->
-        <a href="customer_profile.php"
-        class="menu-item <?=($current=='customer_profile.php')?'active':'';?>">
-
-            <i class="fa-solid fa-user-gear"></i>
-            Profile
-
-        </a>
-
-        <div class="logout-section">
-
-            <a href="logout.php" class="menu-item btn-logout">
-
-                <i class="fa-solid fa-right-from-bracket"></i>
-
-                Log Out
-
-            </a>
-
-        </div>
-
-    </ul>
+</ul>
+```
 
 </nav>

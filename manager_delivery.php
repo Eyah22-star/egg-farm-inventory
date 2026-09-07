@@ -813,13 +813,37 @@ button {
 /* =========================================================
    PAGE
    ========================================================= */
-
 .delivery-page {
-    padding: 20px 22px 32px;
-    max-width: 1550px;
-    margin: 0 auto;
-}
 
+    width: 100%;
+
+    padding: 0;
+
+    max-width: none;
+
+    margin: 0;
+
+}
+/* =========================================================
+   MAIN CONTENT
+   ========================================================= */
+
+.main-content {
+
+    margin-left: 312px;
+
+    min-height: 100vh;
+
+    padding: 18px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #eeece6 0%,
+            #f5f3ed 100%
+        );
+
+}
 /* =========================================================
    OUTER CARD
    ========================================================= */
@@ -2458,7 +2482,7 @@ button {
                 class="message-box"
                 id="smsMessage"
                 readonly
-            >Hello! This is a reminder from Golden Egg Farm.
+            >Hello! This is a reminder from VDVC Egg Farm.
 Your egg order is scheduled for delivery on <?php
 echo htmlspecialchars(
     $display_date

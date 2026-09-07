@@ -1,7 +1,24 @@
 <?php
 session_start();
 require 'db.php';
+// Helper function to insert notifications
+function add_notification($conn, $user_id, $title, $description, $type = 'info') {
+    $stmt = $conn->prepare("INSERT INTO notifications (user_id, title, description, type, is_read) VALUES (?, ?, ?, ?, 0)");
+    $stmt->bind_param("isss", $user_id, $title, $description, $type);
+    $stmt->execute();
+    $stmt->close();
+}
 
+// Helper function to get customer user_id from reservation
+function getCustomerUserId($conn, $reservation_code) {
+    $stmt = $conn->prepare("SELECT user_id FROM reservations WHERE reservation_code = ? LIMIT 1");
+    $stmt->bind_param("s", $reservation_code);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    return $row ? $row['user_id'] : null;
+}
 date_default_timezone_set('Asia/Manila');
 
 /*
@@ -35,136 +52,209 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($reservation_code !== '') {
 
-        if ($action === 'confirm') {
+     if ($action === 'confirm') {
 
-            $stmt = $conn->prepare(
-                "UPDATE reservations
-                 SET status = 'Confirmed'
-                 WHERE reservation_code = ?
-                 AND status = 'Pending'"
-            );
+    // Get customer user_id before updating
+    $customer_id = getCustomerUserId($conn, $reservation_code);
 
-            if (!$stmt) {
-                die("Confirm query prepare failed: " . $conn->error);
-            }
+    $stmt = $conn->prepare(
+        "UPDATE reservations
+         SET status = 'Confirmed'
+         WHERE reservation_code = ?
+         AND status = 'Pending'"
+    );
 
-            $stmt->bind_param("s", $reservation_code);
-            $stmt->execute();
-            $stmt->close();
+    if (!$stmt) {
+        die("Confirm query prepare failed: " . $conn->error);
+    }
 
-            header(
-                "Location: manager_reservation.php?view=" .
-                urlencode($reservation_code) .
-                "&updated=confirmed"
-            );
-            exit();
+    $stmt->bind_param("s", $reservation_code);
+    $stmt->execute();
+    $stmt->close();
+
+    // Notify customer
+    if ($customer_id) {
+        add_notification(
+            $conn,
+            $customer_id,
+            "Reservation Confirmed! ✅",
+            "Your reservation {$reservation_code} has been confirmed by the farm manager.",
+            "success"
+        );
+    }
+
+    header(
+        "Location: manager_reservation.php?view=" .
+        urlencode($reservation_code) .
+        "&updated=confirmed"
+    );
+    exit();
+}
+
+     elseif ($action === 'cancel') {
+
+    // Get customer user_id before updating
+    $customer_id = getCustomerUserId($conn, $reservation_code);
+
+    $stmt = $conn->prepare(
+        "UPDATE reservations
+         SET status = 'Cancelled'
+         WHERE reservation_code = ?
+         AND status NOT IN ('Cancelled', 'Completed')"
+    );
+
+    if (!$stmt) {
+        die("Cancel query prepare failed: " . $conn->error);
+    }
+
+    $stmt->bind_param("s", $reservation_code);
+    $stmt->execute();
+    $stmt->close();
+
+    // Notify customer
+    if ($customer_id) {
+        add_notification(
+            $conn,
+            $customer_id,
+            "Reservation Cancelled ❌",
+            "Your reservation {$reservation_code} has been cancelled by the farm manager.",
+            "alert"
+        );
+    }
+
+    header(
+        "Location: manager_reservation.php?view=" .
+        urlencode($reservation_code) .
+        "&updated=cancelled"
+    );
+    exit();
+}
+
+       elseif ($action === 'update_status') {
+
+    $new_status = isset($_POST['new_status'])
+        ? trim($_POST['new_status'])
+        : '';
+
+    if (
+        $new_status === 'Pending' ||
+        $new_status === 'Confirmed' ||
+        $new_status === 'Completed' ||
+        $new_status === 'Cancelled'
+    ) {
+
+        // Get customer user_id before updating
+        $customer_id = getCustomerUserId($conn, $reservation_code);
+
+        $stmt = $conn->prepare(
+            "UPDATE reservations
+             SET status = ?
+             WHERE reservation_code = ?"
+        );
+
+        if (!$stmt) {
+            die("Status query prepare failed: " . $conn->error);
         }
 
-        elseif ($action === 'cancel') {
+        $stmt->bind_param(
+            "ss",
+            $new_status,
+            $reservation_code
+        );
 
-            $stmt = $conn->prepare(
-                "UPDATE reservations
-                 SET status = 'Cancelled'
-                 WHERE reservation_code = ?
-                 AND status NOT IN ('Cancelled', 'Completed')"
-            );
+        $stmt->execute();
+        $stmt->close();
 
-            if (!$stmt) {
-                die("Cancel query prepare failed: " . $conn->error);
+        // Notify customer
+        if ($customer_id) {
+            $status_message = "";
+            $notification_type = "info";
+            
+            if ($new_status === 'Confirmed') {
+                $status_message = "Your reservation {$reservation_code} has been confirmed!";
+                $notification_type = "success";
+            } elseif ($new_status === 'Completed') {
+                $status_message = "Your reservation {$reservation_code} has been marked as completed.";
+                $notification_type = "success";
+            } elseif ($new_status === 'Cancelled') {
+                $status_message = "Your reservation {$reservation_code} has been cancelled.";
+                $notification_type = "alert";
+            } else {
+                $status_message = "Your reservation {$reservation_code} status has been updated to: {$new_status}";
+                $notification_type = "info";
             }
 
-            $stmt->bind_param("s", $reservation_code);
-            $stmt->execute();
-            $stmt->close();
-
-            header(
-                "Location: manager_reservation.php?view=" .
-                urlencode($reservation_code) .
-                "&updated=cancelled"
+            add_notification(
+                $conn,
+                $customer_id,
+                "Status Updated: {$new_status}",
+                $status_message,
+                $notification_type
             );
-            exit();
+        }
+    }
+
+    header(
+        "Location: manager_reservation.php?view=" .
+        urlencode($reservation_code)
+    );
+    exit();
+}
+       elseif ($action === 'schedule_delivery') {
+
+    $delivery_date = isset($_POST['delivery_date'])
+        ? trim($_POST['delivery_date'])
+        : '';
+
+    if ($delivery_date !== '') {
+
+        // Get customer user_id before updating
+        $customer_id = getCustomerUserId($conn, $reservation_code);
+
+        $stmt = $conn->prepare(
+            "UPDATE reservations
+             SET reservation_date = ?
+             WHERE reservation_code = ?
+             AND delivery_method = 'Delivery'
+             AND status NOT IN ('Cancelled', 'Completed')"
+        );
+
+        if (!$stmt) {
+            die(
+                "Delivery schedule query prepare failed: " .
+                $conn->error
+            );
         }
 
-        elseif ($action === 'update_status') {
+        $stmt->bind_param(
+            "ss",
+            $delivery_date,
+            $reservation_code
+        );
 
-            $new_status = isset($_POST['new_status'])
-                ? trim($_POST['new_status'])
-                : '';
+        $stmt->execute();
+        $stmt->close();
 
-            if (
-                $new_status === 'Pending' ||
-                $new_status === 'Confirmed' ||
-                $new_status === 'Completed' ||
-                $new_status === 'Cancelled'
-            ) {
-
-                $stmt = $conn->prepare(
-                    "UPDATE reservations
-                     SET status = ?
-                     WHERE reservation_code = ?"
-                );
-
-                if (!$stmt) {
-                    die("Status query prepare failed: " . $conn->error);
-                }
-
-                $stmt->bind_param(
-                    "ss",
-                    $new_status,
-                    $reservation_code
-                );
-
-                $stmt->execute();
-                $stmt->close();
-            }
-
-            header(
-                "Location: manager_reservation.php?view=" .
-                urlencode($reservation_code)
+        // Notify customer
+        if ($customer_id) {
+            $formatted_date = date('F d, Y', strtotime($delivery_date));
+            add_notification(
+                $conn,
+                $customer_id,
+                "Delivery Date Scheduled 📦",
+                "Your delivery for reservation {$reservation_code} has been scheduled on {$formatted_date}.",
+                "success"
             );
-            exit();
         }
+    }
 
-        elseif ($action === 'schedule_delivery') {
-
-            $delivery_date = isset($_POST['delivery_date'])
-                ? trim($_POST['delivery_date'])
-                : '';
-
-            if ($delivery_date !== '') {
-
-                $stmt = $conn->prepare(
-                    "UPDATE reservations
-                     SET reservation_date = ?
-                     WHERE reservation_code = ?
-                     AND delivery_method = 'Delivery'
-                     AND status NOT IN ('Cancelled', 'Completed')"
-                );
-
-                if (!$stmt) {
-                    die(
-                        "Delivery schedule query prepare failed: " .
-                        $conn->error
-                    );
-                }
-
-                $stmt->bind_param(
-                    "ss",
-                    $delivery_date,
-                    $reservation_code
-                );
-
-                $stmt->execute();
-                $stmt->close();
-            }
-
-            header(
-                "Location: manager_reservation.php?view=" .
-                urlencode($reservation_code) .
-                "&updated=scheduled"
-            );
-            exit();
-        }
+    header(
+        "Location: manager_reservation.php?view=" .
+        urlencode($reservation_code) .
+        "&updated=scheduled"
+    );
+    exit();
+}
     }
 }
 
@@ -714,9 +804,320 @@ function deliveryIcon($method)
 
         body {
             font-family: Arial, Helvetica, sans-serif;
-            background: #f8fafc;
+               background: #f3f1eb; 
         }
+        /* =========================================================
+   RESERVATION PAGE HEADER
+   ========================================================= */
 
+.reservation-page-header {
+    min-height: 86px;
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 28px;
+
+    background: #f7f6f2;
+
+    border-bottom: 1px solid #dddcd6;
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   HEADER LEFT
+   ========================================================= */
+
+.reservation-header-left {
+    display: flex;
+    align-items: center;
+}
+
+.reservation-header-left h1 {
+    margin: 0;
+
+    font-size: 1.35rem;
+    font-weight: 700;
+
+    color: #3f4b45;
+
+    letter-spacing: -0.3px;
+}
+
+
+/* =========================================================
+   HEADER RIGHT
+   ========================================================= */
+
+.reservation-header-right {
+    display: flex;
+    align-items: center;
+
+    gap: 18px;
+
+    height: 100%;
+}
+
+
+/* =========================================================
+   NOTIFICATION
+   ========================================================= */
+
+.reservation-notification-wrapper {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+}
+
+.reservation-notification-icon {
+    width: 40px;
+    height: 40px;
+
+    border: none;
+    background: transparent;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    position: relative;
+
+    cursor: pointer;
+
+    color: #65716b;
+
+    font-size: 1.2rem;
+
+    transition: 0.2s ease;
+}
+
+.reservation-notification-icon:hover {
+    color: #527d59;
+}
+
+.reservation-notification-badge {
+    position: absolute;
+
+    top: 1px;
+    right: 0;
+
+    min-width: 17px;
+    height: 17px;
+
+    padding: 0 4px;
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #527d59;
+    color: #ffffff;
+
+    font-size: 0.58rem;
+    font-weight: 700;
+
+    border: 2px solid #f7f6f2;
+}
+
+
+/* =========================================================
+   HEADER DIVIDER
+   ========================================================= */
+
+.reservation-header-divider {
+    width: 1px;
+    height: 42px;
+
+    background: #deded8;
+}
+
+
+/* =========================================================
+   MANAGER PROFILE AREA
+   ========================================================= */
+
+.reservation-manager-profile-header {
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    min-width: 230px;
+}
+
+
+/* =========================================================
+   MANAGER AVATAR
+   ========================================================= */
+
+.reservation-manager-avatar {
+    width: 54px;
+    height: 54px;
+
+    min-width: 54px;
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #e8ebe7;
+
+    border: 1px solid #d9ddd8;
+
+    color: #527d59;
+
+    font-size: 1.25rem;
+
+    box-shadow:
+        0 2px 6px
+        rgba(0, 0, 0, 0.04);
+}
+
+
+/* =========================================================
+   MANAGER ACCOUNT DETAILS
+   ========================================================= */
+
+.reservation-manager-account {
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+
+    min-width: 120px;
+}
+
+.reservation-manager-account strong {
+    display: block;
+
+    margin: 0;
+
+    color: #3f4b45;
+
+    font-size: 0.88rem;
+    font-weight: 700;
+
+    line-height: 1.2;
+}
+
+
+/* =========================================================
+   DATE AND TIME
+   ========================================================= */
+
+.reservation-manager-date-time {
+    display: flex;
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 2px;
+
+    margin-top: 5px;
+
+    white-space: nowrap;
+}
+
+.reservation-manager-date {
+    font-size: 0.63rem;
+
+    color: #8a9590;
+}
+
+.reservation-manager-time {
+    font-size: 0.63rem;
+
+    color: #527d59;
+
+    font-weight: 600;
+
+    line-height: 1.2;
+}
+
+
+/* =========================================================
+   DROPDOWN ICON
+   ========================================================= */
+
+.reservation-manager-dropdown-icon {
+    width: 28px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #65716b;
+
+    font-size: 0.7rem;
+
+    cursor: pointer;
+}
+
+
+/* =========================================================
+   RESPONSIVE HEADER
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+    .reservation-page-header {
+        padding: 16px 20px;
+        min-height: auto;
+    }
+
+    .reservation-manager-profile-header {
+        min-width: auto;
+    }
+
+    .reservation-manager-dropdown-icon {
+        display: none;
+    }
+
+}
+
+@media (max-width: 560px) {
+
+    .reservation-page-header {
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .reservation-header-right {
+        gap: 10px;
+    }
+
+    .reservation-header-divider {
+        display: none;
+    }
+
+    .reservation-manager-avatar {
+        width: 45px;
+        height: 45px;
+        min-width: 45px;
+    }
+
+}
+.main-content {
+    margin-left: 312px;
+    min-height: 100vh;
+    padding: 18px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #eeece6 0%,
+            #f5f3ed 100%
+        );
+}
         .thin-scroll::-webkit-scrollbar {
             width: 5px;
         }
@@ -783,7 +1184,34 @@ function deliveryIcon($method)
             border-color: #0f766e;
             box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.08);
         }
+.reservation-page-wrapper {
+    width: 100%;
+    min-height: calc(100vh - 36px);
+}
 
+.reservation-outer-card {
+    width: 100%;
+    min-height: calc(100vh - 36px);
+
+    overflow: hidden;
+  background: #ffffff;
+
+    border: 1px solid #dedbd2;
+
+    border-radius: 22px;
+
+    box-shadow:
+        0 12px 35px
+        rgba(80, 72, 55, 0.10);
+}
+
+.reservation-group-card {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #dedbd2;
+    border-radius: 22px;
+    padding: 14px;
+}
         @media (max-width: 1279px) {
 
             .reservation-list-card {
@@ -830,322 +1258,430 @@ function deliveryIcon($method)
 
 <div class="main-content">
 
-<div class="min-h-screen p-4 md:p-6">
+<div class="reservation-page-wrapper">
 
-    <div class="bg-white border border-slate-200 rounded-xl
-                shadow-sm overflow-hidden">
+    <div class="reservation-outer-card">
+        <!-- =========================================================
+             RESERVATION PAGE HEADER
+             ========================================================= -->
 
-        <div class="p-4 md:p-5">
-
-            <!-- HEADER -->
-
-            <div class="flex items-start justify-between mb-6">
-
-                <div>
-
-                    <h1 class="text-xl font-semibold text-slate-900">
-                        Reservation Management
-                    </h1>
-
-                    <p class="text-sm text-slate-500 mt-1">
-                        View and manage all customer reservations.
-                    </p>
-
-                </div>
-
-                <div class="flex items-center gap-5">
-
-                   <!-- NOTIFICATION -->
-
-<div class="relative" id="notificationWrapper">
-
-    <button
-        type="button"
-        id="notificationButton"
-        class="relative w-9 h-9 rounded-md
-               text-slate-600 hover:text-slate-900
-               hover:bg-slate-100
-               flex items-center justify-center"
-        aria-label="Notifications"
-        aria-expanded="false"
-    >
-
-        <i class="fa-regular fa-bell text-lg"></i>
-
-        <?php if ($notification_count > 0): ?>
-
-            <span
-                id="notificationBadge"
-                class="absolute -top-1 -right-1
-                       min-w-[17px] h-[17px] px-1
-                       bg-red-500 text-white
-                       text-[9px] font-semibold
-                       rounded-full
-                       flex items-center justify-center
-                       border-2 border-white"
-            >
-                <?php
-                if ($notification_count > 99) {
-                    echo '99+';
-                } else {
-                    echo $notification_count;
-                }
-                ?>
-            </span>
-
-        <?php endif; ?>
-
-    </button>
+        <div class="reservation-page-header">
 
 
-    <!-- NOTIFICATION DROPDOWN -->
+            <!-- =====================================================
+                 HEADER LEFT
+                 ===================================================== -->
 
-    <div
-        id="notificationDropdown"
-        class="hidden absolute right-0 top-11
-               w-[320px] bg-white
-               border border-slate-200
-               rounded-lg shadow-lg
-               z-50 overflow-hidden"
-    >
+            <div class="reservation-header-left">
 
-        <!-- DROPDOWN HEADER -->
-
-        <div
-            class="px-4 py-3 border-b border-slate-200
-                   flex items-center justify-between"
-        >
-
-            <div>
-
-                <p
-                    class="text-sm font-semibold
-                           text-slate-800"
-                >
-                    Notifications
-                </p>
-
-                <p
-                    class="text-[10px] text-slate-400 mt-0.5"
-                >
-                    Pending reservation requests
-                </p>
+                <h1>
+                    Reservation Management
+                </h1>
 
             </div>
 
-            <?php if ($notification_count > 0): ?>
 
-                <span
-                    class="text-[10px] font-medium
-                           text-amber-600"
+            <!-- =====================================================
+                 HEADER RIGHT
+                 ===================================================== -->
+
+            <div class="reservation-header-right">
+
+
+                <!-- =================================================
+                     NOTIFICATION
+                     ================================================= -->
+
+                <div
+                    class="reservation-notification-wrapper"
+                    id="notificationWrapper"
                 >
-                    <?php echo $notification_count; ?>
-                    pending
-                </span>
 
-            <?php endif; ?>
-
-        </div>
-
-
-        <!-- NOTIFICATION LIST -->
-
-        <div
-            class="max-h-[320px] overflow-y-auto thin-scroll"
-        >
-
-            <?php if (count($notifications) > 0): ?>
-
-                <?php foreach ($notifications as $notification): ?>
-
-                    <a
-                        href="manager_reservation.php?view=<?php
-                            echo urlencode(
-                                $notification['reservation_code']
-                            );
-                        ?>"
-                        class="block px-4 py-3
-                               border-b border-slate-100
-                               hover:bg-slate-50
-                               transition"
+                    <button
+                        type="button"
+                        id="notificationButton"
+                        class="reservation-notification-icon"
+                        aria-label="Notifications"
+                        aria-expanded="false"
                     >
 
-                        <div class="flex items-start gap-3">
+                        <i class="fa-regular fa-bell"></i>
 
-                            <div
-                                class="w-8 h-8 rounded-full
-                                       bg-amber-50
-                                       flex items-center
-                                       justify-center
-                                       flex-shrink-0"
+
+                        <?php if ($notification_count > 0): ?>
+
+                            <span
+                                id="notificationBadge"
+                                class="reservation-notification-badge"
                             >
 
-                                <i
-                                    class="fa-regular
-                                           fa-calendar-plus
-                                           text-amber-600
-                                           text-xs"
-                                ></i>
+                                <?php
+
+                                if ($notification_count > 99) {
+                                    echo '99+';
+                                } else {
+                                    echo $notification_count;
+                                }
+
+                                ?>
+
+                            </span>
+
+                        <?php endif; ?>
+
+                    </button>
+
+
+                    <!-- =============================================
+                         NOTIFICATION DROPDOWN
+                         ============================================= -->
+
+                    <div
+                        id="notificationDropdown"
+                        class="hidden absolute right-0 top-11
+                               w-[320px] bg-white
+                               border border-slate-200
+                               rounded-lg shadow-lg
+                               z-50 overflow-hidden"
+                    >
+
+
+                        <!-- DROPDOWN HEADER -->
+
+                        <div
+                            class="px-4 py-3 border-b border-slate-200
+                                   flex items-center justify-between"
+                        >
+
+                            <div>
+
+                                <p
+                                    class="text-sm font-semibold
+                                           text-slate-800"
+                                >
+                                    Notifications
+                                </p>
+
+                                <p
+                                    class="text-[10px]
+                                           text-slate-400 mt-0.5"
+                                >
+                                    Pending reservation requests
+                                </p>
 
                             </div>
 
 
-                            <div class="min-w-0 flex-1">
+                            <?php if ($notification_count > 0): ?>
 
-                                <div
-                                    class="flex items-center
-                                           justify-between gap-2"
+                                <span
+                                    class="text-[10px]
+                                           font-medium
+                                           text-amber-600"
                                 >
 
-                                    <p
-                                        class="text-[11px]
-                                               font-semibold
-                                               text-slate-800
-                                               truncate"
+                                    <?php
+                                    echo $notification_count;
+                                    ?>
+
+                                    pending
+
+                                </span>
+
+                            <?php endif; ?>
+
+                        </div>
+
+
+                        <!-- NOTIFICATION LIST -->
+
+                        <div
+                            class="max-h-[320px]
+                                   overflow-y-auto
+                                   thin-scroll"
+                        >
+
+                            <?php if (count($notifications) > 0): ?>
+
+                                <?php foreach ($notifications as $notification): ?>
+
+                                    <a
+                                        href="manager_reservation.php?view=<?php
+                                            echo urlencode(
+                                                $notification['reservation_code']
+                                            );
+                                        ?>"
+                                        class="block px-4 py-3
+                                               border-b border-slate-100
+                                               hover:bg-slate-50
+                                               transition"
                                     >
-                                        New Reservation
+
+                                        <div class="flex items-start gap-3">
+
+
+                                            <div
+                                                class="w-8 h-8
+                                                       rounded-full
+                                                       bg-amber-50
+                                                       flex items-center
+                                                       justify-center
+                                                       flex-shrink-0"
+                                            >
+
+                                                <i
+                                                    class="fa-regular
+                                                           fa-calendar-plus
+                                                           text-amber-600
+                                                           text-xs"
+                                                ></i>
+
+                                            </div>
+
+
+                                            <div class="min-w-0 flex-1">
+
+
+                                                <div
+                                                    class="flex
+                                                           items-center
+                                                           justify-between
+                                                           gap-2"
+                                                >
+
+                                                    <p
+                                                        class="text-[11px]
+                                                               font-semibold
+                                                               text-slate-800
+                                                               truncate"
+                                                    >
+                                                        New Reservation
+                                                    </p>
+
+
+                                                    <span
+                                                        class="text-[9px]
+                                                               text-amber-600
+                                                               font-medium"
+                                                    >
+                                                        Pending
+                                                    </span>
+
+                                                </div>
+
+
+                                                <p
+                                                    class="text-[10px]
+                                                           text-slate-600
+                                                           mt-0.5"
+                                                >
+
+                                                    <?php
+                                                    echo htmlspecialchars(
+                                                        $notification['customer_name']
+                                                    );
+                                                    ?>
+
+                                                </p>
+
+
+                                                <p
+                                                    class="text-[10px]
+                                                           text-slate-400
+                                                           mt-1"
+                                                >
+
+                                                    <?php
+                                                    echo htmlspecialchars(
+                                                        $notification['reservation_code']
+                                                    );
+                                                    ?>
+
+                                                    <span class="mx-1">
+                                                        •
+                                                    </span>
+
+                                                    <?php
+                                                    echo formatDateTimeDisplay(
+                                                        $notification['reserved_at']
+                                                    );
+                                                    ?>
+
+                                                </p>
+
+                                            </div>
+
+                                        </div>
+
+                                    </a>
+
+                                <?php endforeach; ?>
+
+
+                            <?php else: ?>
+
+
+                                <div class="px-5 py-8 text-center">
+
+                                    <div
+                                        class="w-10 h-10 mx-auto
+                                               rounded-full
+                                               bg-slate-100
+                                               flex items-center
+                                               justify-center mb-2"
+                                    >
+
+                                        <i
+                                            class="fa-regular
+                                                   fa-bell-slash
+                                                   text-slate-400
+                                                   text-sm"
+                                        ></i>
+
+                                    </div>
+
+
+                                    <p
+                                        class="text-xs font-medium
+                                               text-slate-600"
+                                    >
+                                        No new notifications
                                     </p>
 
-                                    <span
-                                        class="text-[9px]
-                                               text-amber-600
-                                               font-medium"
+
+                                    <p
+                                        class="text-[10px]
+                                               text-slate-400 mt-1"
                                     >
-                                        Pending
-                                    </span>
+                                        There are no pending reservations.
+                                    </p>
 
                                 </div>
 
 
-                                <p
-                                    class="text-[10px]
-                                           text-slate-600 mt-0.5"
-                                >
-
-                                    <?php
-                                    echo htmlspecialchars(
-                                        $notification['customer_name']
-                                    );
-                                    ?>
-
-                                </p>
-
-
-                                <p
-                                    class="text-[10px]
-                                           text-slate-400 mt-1"
-                                >
-
-                                    <?php
-                                    echo htmlspecialchars(
-                                        $notification['reservation_code']
-                                    );
-                                    ?>
-
-                                    <span class="mx-1">•</span>
-
-                                    <?php
-                                    echo formatDateTimeDisplay(
-                                        $notification['reserved_at']
-                                    );
-                                    ?>
-
-                                </p>
-
-                            </div>
+                            <?php endif; ?>
 
                         </div>
 
-                    </a>
 
-                <?php endforeach; ?>
+                        <!-- DROPDOWN FOOTER -->
 
-            <?php else: ?>
+                        <div
+                            class="px-4 py-2.5
+                                   border-t border-slate-200
+                                   bg-slate-50"
+                        >
 
-                <div class="px-5 py-8 text-center">
+                            <a
+                                href="manager_reservation.php"
+                                class="block text-center
+                                       text-[10px]
+                                       font-medium
+                                       text-emerald-700
+                                       hover:text-emerald-800"
+                            >
+                                View All Reservations
+                            </a>
 
-                    <div
-                        class="w-10 h-10 mx-auto
-                               rounded-full bg-slate-100
-                               flex items-center
-                               justify-center mb-2"
-                    >
-
-                        <i
-                            class="fa-regular fa-bell-slash
-                                   text-slate-400 text-sm"
-                        ></i>
+                        </div>
 
                     </div>
 
-                    <p
-                        class="text-xs font-medium
-                               text-slate-600"
-                    >
-                        No new notifications
-                    </p>
-
-                    <p
-                        class="text-[10px] text-slate-400 mt-1"
-                    >
-                        There are no pending reservations.
-                    </p>
-
                 </div>
 
-            <?php endif; ?>
 
-        </div>
+                <!-- =================================================
+                     HEADER DIVIDER
+                     ================================================= -->
+
+                <div
+                    class="reservation-header-divider"
+                ></div>
 
 
-        <!-- FOOTER -->
+                <!-- =================================================
+                     MANAGER PROFILE
+                     ================================================= -->
 
-        <div
-            class="px-4 py-2.5 border-t border-slate-200
-                   bg-slate-50"
-        >
+                <div
+                    class="reservation-manager-profile-header"
+                >
 
-            <a
-                href="manager_reservation.php"
-                class="block text-center
-                       text-[10px] font-medium
-                       text-emerald-700
-                       hover:text-emerald-800"
-            >
-                View All Reservations
-            </a>
 
-        </div>
+                    <!-- MANAGER AVATAR -->
 
-    </div>
+                    <div class="reservation-manager-avatar">
 
-</div>
+                        <i class="fa-solid fa-user"></i>
 
-                 <div
-    class="text-right hidden sm:block"
-    id="managerClock"
-    data-server-time="<?php echo time(); ?>"
->
+                    </div>
 
-    <p
-        id="managerDate"
-        class="text-[11px] text-slate-500"
-    >
-        <?php echo date('F d, Y'); ?>
-    </p>
 
-    <p
-        id="managerTime"
-        class="text-[11px] text-slate-700 font-medium"
-    >
-        <?php echo date('h:i:s A'); ?>
-    </p>
+                    <!-- MANAGER INFORMATION -->
 
-</div>
+                    <div
+                        class="reservation-manager-account"
+                        id="managerClock"
+                        data-server-time="<?php echo time(); ?>"
+                    >
+
+                        <strong>
+                            Manager
+                        </strong>
+
+
+                        <!-- DATE AND TIME -->
+
+                        <div
+                            class="reservation-manager-date-time"
+                        >
+
+                            <span
+                                id="managerDate"
+                                class="reservation-manager-date"
+                            >
+                                <?php
+                                echo date('F d, Y');
+                                ?>
+                            </span>
+
+
+                            <span
+                                id="managerTime"
+                                class="reservation-manager-time"
+                            >
+                                <?php
+                                echo date('h:i:s A');
+                                ?>
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- DROPDOWN ICON -->
+
+                    <div
+                        class="reservation-manager-dropdown-icon"
+                    >
+
+                        <i class="fa-solid fa-chevron-down"></i>
+
+                    </div>
 
                 </div>
 
             </div>
+
+        </div>
+
+
+        <!-- =========================================================
+             PAGE CONTENT
+             ========================================================= -->
+
+        <div class="p-4 md:p-5">
 
 
             <!-- FILTER CARD -->

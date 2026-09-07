@@ -1,346 +1,1370 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Poppins', sans-serif;
-        }
+
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>Create Account - VDVC Egg Farm</title>
+
+
+<!-- Google Font -->
+
+<link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+>
+
+
+<!-- Font Awesome -->
+
+<link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+>
+
+
+<style>
+
+    /* =========================================
+       GENERAL
+    ========================================= */
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Poppins', sans-serif;
+    }
+
+
+    html,
+    body {
+        width: 100%;
+        min-height: 100%;
+    }
+
+
+    body {
+
+        min-height: 100vh;
+
+        display: flex;
+
+        justify-content: center;
+
+        align-items: center;
+
+        padding: 12px;
+
+        position: relative;
+
+        overflow: hidden;
+
+        background-image: url('/EggFarm/loginbg.PNG');
+
+        background-size: cover;
+
+        background-position: center;
+
+        background-repeat: no-repeat;
+
+    }
+
+
+    /* =========================================
+       BACKGROUND OVERLAY
+    ========================================= */
+
+    body::before {
+
+        content: "";
+
+        position: fixed;
+
+        top: 0;
+
+        left: 0;
+
+        width: 100%;
+
+        height: 100%;
+
+        background: rgba(255, 255, 255, 0.06);
+
+        pointer-events: none;
+
+        z-index: 0;
+
+    }
+
+
+    /* =========================================
+       REGISTER CARD
+    ========================================= */
+
+    .register-card {
+
+    width: 100%;
+
+    max-width: 500px;
+
+    position: relative;
+
+    z-index: 1;
+
+    text-align: center;
+
+    padding: 28px 35px 26px;
+
+    background: rgba(255, 255, 255, 0.90);
+
+    border: 1px solid rgba(255, 255, 255, 0.75);
+
+    border-radius: 25px;
+
+    box-shadow:
+        0 15px 40px rgba(66, 53, 27, 0.16),
+        0 4px 10px rgba(66, 53, 27, 0.08);
+
+    backdrop-filter: blur(8px);
+
+    -webkit-backdrop-filter: blur(8px);
+
+}
+
+
+    /* =========================================
+       LOGO
+    ========================================= */
+
+    .logo-container {
+
+        margin-bottom: 7px;
+
+    }
+
+
+    .logo-img {
+
+        width: 270px;
+
+        max-width: 100%;
+
+        height: auto;
+
+        display: block;
+
+        margin: 0 auto;
+
+    }
+
+
+    /* =========================================
+       HEADER TEXT
+    ========================================= */
+
+    .register-title {
+
+        color: #274636;
+
+        font-size: 29px;
+
+        font-weight: 700;
+
+        line-height: 1.2;
+
+        margin-bottom: 5px;
+
+    }
+
+
+    .register-subtitle {
+
+        max-width: 420px;
+
+        margin: 0 auto 15px;
+
+        color: #65707a;
+
+        font-size: 12px;
+
+        font-weight: 400;
+
+        line-height: 1.6;
+
+    }
+
+
+    /* =========================================
+       FORM
+    ========================================= */
+
+    .register-form {
+
+        width: 100%;
+
+        margin: 0 auto;
+
+    }
+
+
+    .form-group {
+
+        position: relative;
+
+        margin-bottom: 16px;
+
+    }
+
+
+    /* =========================================
+       INPUT ICON
+    ========================================= */
+
+    .input-icon {
+
+        position: absolute;
+
+        left: 18px;
+
+        top: 50%;
+
+        transform: translateY(-50%);
+
+        color: #65737c;
+
+        font-size: 16px;
+
+        z-index: 2;
+
+    }
+
+
+    /* =========================================
+       FORM CONTROL
+    ========================================= */
+
+    .form-control {
+
+        width: 100%;
+
+        height: 58px;
+
+        padding: 0 50px;
+
+        border: 1px solid #c8ced0;
+
+        border-radius: 11px;
+
+        background: rgba(255, 255, 255, 0.65);
+
+        color: #39434a;
+
+        font-size: 13px;
+
+        outline: none;
+
+        transition: all 0.25s ease;
+
+    }
+
+
+    .form-control::placeholder {
+
+        color: #737d84;
+
+    }
+
+
+    .form-control:focus {
+
+        border-color: #52715e;
+
+        box-shadow:
+            0 0 0 3px
+            rgba(82, 113, 94, 0.12);
+
+        background: #ffffff;
+
+    }
+
+
+    /* =========================================
+       PASSWORD TOGGLE
+    ========================================= */
+
+    .toggle-password {
+
+        position: absolute;
+
+        right: 18px;
+
+        top: 50%;
+
+        transform: translateY(-50%);
+
+        color: #65737c;
+
+        font-size: 17px;
+
+        cursor: pointer;
+
+        z-index: 3;
+
+        transition: color 0.2s ease;
+
+    }
+
+
+    .toggle-password:hover {
+
+        color: #294a38;
+
+    }
+
+
+    /* =========================================
+       REGISTER BUTTON
+    ========================================= */
+
+    .btn-submit {
+
+        width: 100%;
+
+        height: 58px;
+
+        margin-top: 3px;
+
+        border: none;
+
+        border-radius: 11px;
+
+        background: linear-gradient(
+            135deg,
+            #3e634d,
+            #2e4e3c
+        );
+
+        color: #ffffff;
+
+        font-size: 14px;
+
+        font-weight: 600;
+
+        letter-spacing: 0.5px;
+
+        cursor: pointer;
+
+        transition: all 0.25s ease;
+
+        box-shadow:
+            0 6px 14px
+            rgba(46, 78, 60, 0.18);
+
+    }
+
+
+    .btn-submit:hover {
+
+        transform: translateY(-2px);
+
+        background: linear-gradient(
+            135deg,
+            #345843,
+            #254332
+        );
+
+        box-shadow:
+            0 10px 18px
+            rgba(46, 78, 60, 0.25);
+
+    }
+
+
+    .btn-submit:active {
+
+        transform: translateY(0);
+
+    }
+
+
+    .btn-submit i {
+
+        margin-left: 8px;
+
+    }
+
+
+    /* =========================================
+       DIVIDER
+    ========================================= */
+
+    .divider {
+
+        display: flex;
+
+        align-items: center;
+
+        gap: 18px;
+
+        margin: 14px 0 10px;
+
+    }
+
+
+    .divider::before,
+    .divider::after {
+
+        content: "";
+
+        flex: 1;
+
+        height: 1px;
+
+        background: #cbd0cc;
+
+    }
+
+
+    .divider span {
+
+        color: #69727a;
+
+        font-size: 12px;
+
+    }
+
+
+    /* =========================================
+       LOGIN LINK
+    ========================================= */
+
+    .form-footer {
+
+        font-size: 11px;
+
+        color: #65707a;
+
+    }
+
+
+    .form-footer a {
+
+        color: #345c45;
+
+        font-weight: 600;
+
+        text-decoration: none;
+
+        margin-left: 3px;
+
+    }
+
+
+    .form-footer a:hover {
+
+        text-decoration: underline;
+
+    }
+
+
+    /* =========================================
+       FARM FOOTER
+    ========================================= */
+
+    .farm-footer {
+
+        margin-top: 15px;
+
+        text-align: center;
+
+    }
+
+
+    .farm-name {
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        gap: 7px;
+
+        color: #53636b;
+
+        font-size: 11px;
+
+        font-weight: 500;
+
+        letter-spacing: 0.3px;
+
+    }
+
+
+    .farm-name::before,
+    .farm-name::after {
+
+        content: "";
+
+        width: 40px;
+
+        height: 1px;
+
+        background: #9fa9a4;
+
+    }
+
+
+    .farm-name i {
+
+        color: #345c45;
+
+        font-size: 9px;
+
+    }
+
+
+    .farm-tagline {
+
+        margin-top: 3px;
+
+        color: #68747d;
+
+        font-size: 9px;
+
+        letter-spacing: 0.3px;
+
+    }
+
+
+    /* =========================================
+       TOAST NOTIFICATION
+    ========================================= */
+
+    .notification {
+
+        visibility: hidden;
+
+        min-width: 280px;
+
+        max-width: 90%;
+
+        background: #2e4e3c;
+
+        color: #ffffff;
+
+        text-align: center;
+
+        border-radius: 10px;
+
+        padding: 12px 18px;
+
+        position: fixed;
+
+        z-index: 9999;
+
+        left: 50%;
+
+        top: 15px;
+
+        transform: translateX(-50%);
+
+        font-size: 13px;
+
+        font-weight: 500;
+
+        box-shadow:
+            0 5px 18px
+            rgba(0, 0, 0, 0.15);
+
+        opacity: 0;
+
+        transition:
+            opacity 0.3s ease,
+            top 0.3s ease,
+            visibility 0.3s ease;
+
+    }
+
+
+    .notification.show {
+
+        visibility: visible;
+
+        opacity: 1;
+
+        top: 25px;
+
+    }
+
+
+    /* =========================================
+       RESPONSIVE TABLET
+    ========================================= */
+
+    @media screen and (max-width: 768px) {
 
         body {
-            background-color: #f0f7fc; /* Light blue background */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px 0;
+
+            padding: 15px;
+
+            overflow-y: auto;
+
         }
+
 
         .register-card {
-            background: #ffffff;
-            width: 100%;
-            max-width: 360px;
-            padding: 40px 30px;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            text-align: center;
-            position: relative;
+
+            max-width: 460px;
+
+            padding: 28px 30px 26px;
+
         }
 
-        /* Header / Logo Styling */
-        .logo-container {
-            margin-bottom: 25px;
-        }
-        
+
         .logo-img {
-            width: 100px;
-            height: auto;
-            margin-bottom: 15px;
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
+
+            width: 250px;
+
         }
 
-        .system-title {
-            color: #1e4473; /* Deep blue text */
-            font-size: 19px;
-            font-weight: 700;
-            text-transform: uppercase;
-            line-height: 1.2;
-            letter-spacing: 0.5px;
+    }
+
+
+    /* =========================================
+       RESPONSIVE MOBILE
+    ========================================= */
+
+    @media screen and (max-width: 480px) {
+
+        body {
+
+            padding: 10px;
+
+            align-items: flex-start;
+
+            overflow-y: auto;
+
         }
 
-        .subtitle {
-            color: #5c6b73;
-            font-size: 12px;
-            font-weight: 500;
-            margin-top: 5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+
+        .register-card {
+
+            padding: 24px 20px;
+
+            border-radius: 20px;
+
         }
 
-        /* Form Controls */
+
+        .logo-img {
+
+            width: 230px;
+
+        }
+
+
+        .register-title {
+
+            font-size: 25px;
+
+        }
+
+
+        .register-subtitle {
+
+            font-size: 11px;
+
+        }
+
+
         .form-group {
-            position: relative;
-            margin-bottom: 16px;
+
+            margin-bottom: 14px;
+
         }
 
-        .form-group i.input-icon {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #8fa0a6;
-            font-size: 16px;
-        }
-
-        /* Show/Hide Password Eye Icon Styling */
-        .toggle-password {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #8fa0a6;
-            cursor: pointer;
-            font-size: 16px;
-            transition: color 0.2s ease;
-        }
-
-        .toggle-password:hover {
-            color: #1e4473;
-        }
 
         .form-control {
-            width: 100%;
-            padding: 12px 40px 12px 45px; /* Added right padding for the eye icon */
-            border: 1.5px solid #d0dfeb;
-            border-radius: 10px;
-            font-size: 14px;
-            color: #333;
-            outline: none;
-            transition: all 0.3s ease;
-        }
 
-        /* Focus border dynamic response */
-        .form-control:focus {
-            border-color: #5294e2;
-            box-shadow: 0 0 5px rgba(82, 148, 226, 0.3);
-        }
+            height: 54px;
 
-        .form-control::placeholder {
-            color: #a0b0b5;
-        }
-
-        /* Register Button */
-        .btn-submit {
-            width: 100%;
-            background-color: #1e4473; /* Dark blue button */
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 25px; /* Capsule layout button */
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(30, 68, 115, 0.2);
-            transition: background-color 0.2s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 10px;
-        }
-
-        .btn-submit:hover {
-            background-color: #153256;
-        }
-
-        /* Toast/Notification Popup Style */
-        .notification {
-            visibility: hidden;
-            min-width: 280px;
-            background-color: #2ec4b6; /* Clean teal/green success color */
-            color: #fff;
-            text-align: center;
-            border-radius: 8px;
-            padding: 12px;
-            position: fixed;
-            z-index: 1000;
-            left: 50%;
-            top: 30px;
-            transform: translateX(-50%);
-            font-size: 14px;
-            font-weight: 500;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            opacity: 0;
-            transition: opacity 0.5s, top 0.5s, visibility 0.5s;
-        }
-
-        .notification.show {
-            visibility: visible;
-            opacity: 1;
-            top: 50px;
-        }
-
-        /* Footer Links */
-        .form-footer {
-            margin-top: 25px;
             font-size: 12px;
-            color: #4a5568;
+
         }
 
-        .form-footer a {
-            color: #1e4473;
-            text-decoration: none;
-            font-weight: 600;
+
+        .btn-submit {
+
+            height: 54px;
+
         }
 
-        .form-footer a:hover {
-            text-decoration: underline;
+    }
+
+
+    /* =========================================
+       SHORT SCREEN HEIGHT
+    ========================================= */
+
+    @media screen and (max-height: 750px)
+    and (min-width: 769px) {
+
+        .register-card {
+
+            padding: 20px 35px 18px;
+
         }
-    </style>
+
+
+        .logo-img {
+
+            width: 220px;
+
+        }
+
+
+        .logo-container {
+
+            margin-bottom: 4px;
+
+        }
+
+
+        .register-title {
+
+            font-size: 25px;
+
+            margin-bottom: 3px;
+
+        }
+
+
+        .register-subtitle {
+
+            margin-bottom: 10px;
+
+            font-size: 11px;
+
+        }
+
+
+        .form-group {
+
+            margin-bottom: 12px;
+
+        }
+
+
+        .form-control {
+
+            height: 52px;
+
+        }
+
+
+        .btn-submit {
+
+            height: 52px;
+
+        }
+
+
+        .divider {
+
+            margin: 10px 0 8px;
+
+        }
+
+
+        .farm-footer {
+
+            margin-top: 10px;
+
+        }
+
+    }
+
+</style>
+
+
 </head>
+
 <body>
 
-<div id="toastNotification" class="notification">Register Successfully!</div>
 
-<div class="register-card">
-    
-    <div class="logo-container">
-        <img src="/EggFarm/vdvc.png" alt="VDVC Logo" class="logo-img">
-        <h1 class="system-title">Customer Registration</h1>
-        <div class="subtitle">Poultry Farm Management</div>
-    </div>
+<!-- =========================================
+     TOAST NOTIFICATION
+========================================= -->
 
-    <form id="registrationForm" action="register_process.php" method="POST">
-        
-        <div class="form-group">
-            <i class="fa-regular fa-address-card input-icon"></i>
-            <input type="text" 
-                   name="fullname" 
-                   class="form-control" 
-                   placeholder="Full Name" 
-                   required>
-        </div>
-
-        <div class="form-group">
-            <i class="fa-regular fa-user input-icon"></i>
-            <input type="text" 
-                   name="username" 
-                   class="form-control" 
-                   placeholder="Username" 
-                   required>
-        </div>
-
-        <div class="form-group">
-            <i class="fa-regular fa-envelope input-icon"></i>
-            <input type="email" 
-                   name="email" 
-                   class="form-control" 
-                   placeholder="Email Address" 
-                   required>
-        </div>
-
-       <div class="form-group password-group"> 
-    <i class="fa-solid fa-lock input-icon"></i> 
-    <input type="password"  
-           name="password"  
-           id="passwordField" 
-           class="form-control"  
-           placeholder="Password"  
-           required> 
-
-    <i class="fa-solid fa-eye toggle-password" 
-       id="togglePasswordIcon"></i>
+<div
+    id="toastNotification"
+    class="notification"
+>
+    Registration Successful!
 </div>
 
-        <button type="submit" class="btn-submit">Register</button>
+
+<!-- =========================================
+     REGISTER CARD
+========================================= -->
+
+<div class="register-card">
+
+
+    <!-- LOGO -->
+
+    <div class="logo-container">
+
+        <img
+            src="/EggFarm/vdvclogo.png"
+            alt="VDVC Egg Farm Logo"
+            class="logo-img"
+        >
+
+    </div>
+
+
+    <!-- HEADER -->
+
+    <h1 class="register-title">
+
+        Create Your Account
+
+    </h1>
+
+
+    <p class="register-subtitle">
+
+       Join VDVC Egg Farm to access our services and<br>
+ enjoy a convenient experience.
+       
+
+    </p>
+
+
+    <!-- =========================================
+         REGISTRATION FORM
+    ========================================= -->
+
+    <form
+        id="registrationForm"
+        action="register_process.php"
+        method="POST"
+        class="register-form"
+    >
+
+
+        <!-- FULL NAME -->
+
+        <div class="form-group">
+
+            <i class="fa-regular fa-user input-icon"></i>
+
+            <input
+                type="text"
+                name="fullname"
+                class="form-control"
+                placeholder="Full Name"
+                required
+            >
+
+        </div>
+
+
+        <!-- USERNAME -->
+
+        <div class="form-group">
+
+            <i class="fa-regular fa-circle-user input-icon"></i>
+
+            <input
+                type="text"
+                name="username"
+                class="form-control"
+                placeholder="Username"
+                required
+            >
+
+        </div>
+
+
+        <!-- EMAIL -->
+
+        <div class="form-group">
+
+            <i class="fa-regular fa-envelope input-icon"></i>
+
+            <input
+                type="email"
+                name="email"
+                class="form-control"
+                placeholder="Email Address"
+                required
+            >
+
+        </div>
+
+
+        <!-- PASSWORD -->
+
+        <div class="form-group">
+
+            <i class="fa-solid fa-lock input-icon"></i>
+
+            <input
+                type="password"
+                name="password"
+                id="passwordField"
+                class="form-control"
+                placeholder="Password"
+                required
+            >
+
+
+            <i
+                class="fa-solid fa-eye toggle-password"
+                id="togglePasswordIcon"
+                onclick="togglePassword()"
+            ></i>
+
+        </div>
+
+
+        <!-- CONFIRM PASSWORD -->
+
+        <div class="form-group">
+
+            <i class="fa-solid fa-lock input-icon"></i>
+
+            <input
+                type="password"
+                name="confirm_password"
+                id="confirmPasswordField"
+                class="form-control"
+                placeholder="Confirm Password"
+                required
+            >
+
+
+            <i
+                class="fa-solid fa-eye toggle-password"
+                id="toggleConfirmPasswordIcon"
+                onclick="toggleConfirmPassword()"
+            ></i>
+
+        </div>
+
+
+        <!-- REGISTER BUTTON -->
+
+        <button
+            type="submit"
+            class="btn-submit"
+        >
+
+            Register
+
+            <i class="fa-solid fa-arrow-right"></i>
+
+        </button>
+
 
     </form>
 
-    <div class="form-footer">
-        Already have an account? <a href="login.php">Log In</a>
+
+    <!-- DIVIDER -->
+
+    <div class="divider">
+
+        <span>or</span>
+
     </div>
+
+
+    <!-- LOGIN LINK -->
+
+    <div class="form-footer">
+
+        Already have an account?
+
+        <a href="login.php">
+
+            Log In
+
+        </a>
+
+    </div>
+
+
+    <!-- FARM FOOTER -->
+
+    <div class="farm-footer">
+
+
+        <div class="farm-name">
+
+            <i class="fa-solid fa-seedling"></i>
+
+            <span>VDVC Egg Farm</span>
+
+            <i class="fa-solid fa-seedling"></i>
+
+        </div>
+
+
+        <div class="farm-tagline">
+
+            Fresh Eggs. Trusted Farm. Better for You.
+
+        </div>
+
+
+    </div>
+
 
 </div>
 
+
+<!-- =========================================
+     JAVASCRIPT
+========================================= -->
+
 <script>
-    // 1. SHOW/HIDE PASSWORD FUNCTIONALITY
-    const passwordField = document.getElementById('passwordField');
-    const togglePasswordIcon = document.getElementById('togglePasswordIcon');
 
-    togglePasswordIcon.addEventListener('click', function () {
-        // I-toggle ang type attribute
-        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
-        passwordField.setAttribute('type', type);
-        
-        // I-toggle ang icon class (mula eye papuntang eye-slash)
-        this.classList.toggle('fa-eye');
-        this.classList.toggle('fa-eye-slash');
-    });
 
-   // 2. AJAX SUBMISSION
-const registrationForm = document.getElementById('registrationForm');
-const toastNotification = document.getElementById('toastNotification');
+    /* =========================================
+       PASSWORD SHOW / HIDE
+    ========================================= */
 
-registrationForm.addEventListener('submit', function (e) {
+    function togglePassword() {
 
-    e.preventDefault();
+        var passwordField =
+            document.getElementById(
+                "passwordField"
+            );
 
-    const formData = new FormData(this);
 
-    fetch('register_process.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(function(response) {
-        return response.json();
-    })
-    .then(function(data) {
+        var passwordIcon =
+            document.getElementById(
+                "togglePasswordIcon"
+            );
 
-        // Show the message from register_process.php
-        toastNotification.textContent = data.message;
 
-        // SUCCESS
-        if(data.status === 'success') {
+        if (passwordField.type === "password") {
 
-            toastNotification.style.backgroundColor = '#2ec4b6';
+            passwordField.type = "text";
 
-            toastNotification.classList.add('show');
 
-            // Clear all inputs ONLY after successful registration
-            registrationForm.reset();
-
-            // Reset password field to hidden
-            passwordField.setAttribute('type', 'password');
-
-            // Reset eye icon
-            togglePasswordIcon.classList.add('fa-eye');
-            togglePasswordIcon.classList.remove('fa-eye-slash');
+            passwordIcon.className =
+                "fa-solid fa-eye-slash toggle-password";
 
         }
 
-        // ERROR
         else {
 
-            toastNotification.style.backgroundColor = '#e74c3c';
+            passwordField.type = "password";
 
-            toastNotification.classList.add('show');
 
-            // DO NOT clear the form
-            // User can correct the username/email
+            passwordIcon.className =
+                "fa-solid fa-eye toggle-password";
+
         }
 
-        // Hide notification after 3 seconds
-        setTimeout(function() {
-            toastNotification.classList.remove('show');
-        }, 3000);
+    }
 
-    })
-    .catch(function(error) {
 
-        console.error('Error:', error);
+    /* =========================================
+       CONFIRM PASSWORD SHOW / HIDE
+    ========================================= */
 
-        toastNotification.textContent =
-            'Something went wrong. Please try again.';
+    function toggleConfirmPassword() {
 
-        toastNotification.style.backgroundColor = '#e74c3c';
+        var confirmPasswordField =
+            document.getElementById(
+                "confirmPasswordField"
+            );
 
-        toastNotification.classList.add('show');
 
-        setTimeout(function() {
-            toastNotification.classList.remove('show');
-        }, 3000);
-    });
+        var confirmPasswordIcon =
+            document.getElementById(
+                "toggleConfirmPasswordIcon"
+            );
 
-});
+
+        if (
+            confirmPasswordField.type === "password"
+        ) {
+
+            confirmPasswordField.type = "text";
+
+
+            confirmPasswordIcon.className =
+                "fa-solid fa-eye-slash toggle-password";
+
+        }
+
+        else {
+
+            confirmPasswordField.type = "password";
+
+
+            confirmPasswordIcon.className =
+                "fa-solid fa-eye toggle-password";
+
+        }
+
+    }
+
+
+    /* =========================================
+       AJAX REGISTRATION
+    ========================================= */
+
+    var registrationForm =
+        document.getElementById(
+            "registrationForm"
+        );
+
+
+    var toastNotification =
+        document.getElementById(
+            "toastNotification"
+        );
+
+
+    registrationForm.addEventListener(
+
+        "submit",
+
+        function(e) {
+
+
+            e.preventDefault();
+
+
+            var password =
+                document.getElementById(
+                    "passwordField"
+                ).value;
+
+
+            var confirmPassword =
+                document.getElementById(
+                    "confirmPasswordField"
+                ).value;
+
+
+            /* CHECK PASSWORD MATCH */
+
+            if (password !== confirmPassword) {
+
+
+                toastNotification.textContent =
+                    "Passwords do not match.";
+
+
+                toastNotification.style.backgroundColor =
+                    "#c0392b";
+
+
+                toastNotification.classList.add(
+                    "show"
+                );
+
+
+                setTimeout(
+
+                    function() {
+
+                        toastNotification.classList.remove(
+                            "show"
+                        );
+
+                    },
+
+                    3000
+
+                );
+
+
+                return;
+
+            }
+
+
+            var formData =
+                new FormData(
+                    registrationForm
+                );
+
+
+            fetch(
+
+                "register_process.php",
+
+                {
+
+                    method: "POST",
+
+                    body: formData
+
+                }
+
+            )
+
+
+            .then(
+
+                function(response) {
+
+                    return response.json();
+
+                }
+
+            )
+
+
+            .then(
+
+                function(data) {
+
+
+                    toastNotification.textContent =
+                        data.message;
+
+
+                    /* SUCCESS */
+
+                    if (
+                        data.status === "success"
+                    ) {
+
+
+                        toastNotification.style.backgroundColor =
+                            "#2e4e3c";
+
+
+                        toastNotification.classList.add(
+                            "show"
+                        );
+
+
+                        registrationForm.reset();
+
+
+                        /* REDIRECT AFTER SUCCESS */
+
+                        setTimeout(
+
+                            function() {
+
+                                window.location.href =
+                                    "login.php";
+
+                            },
+
+                            2000
+
+                        );
+
+                    }
+
+
+                    /* ERROR */
+
+                    else {
+
+
+                        toastNotification.style.backgroundColor =
+                            "#c0392b";
+
+
+                        toastNotification.classList.add(
+                            "show"
+                        );
+
+
+                        setTimeout(
+
+                            function() {
+
+                                toastNotification.classList.remove(
+                                    "show"
+                                );
+
+                            },
+
+                            3000
+
+                        );
+
+                    }
+
+                }
+
+            )
+
+
+            .catch(
+
+                function(error) {
+
+
+                    console.error(
+                        "Error:",
+                        error
+                    );
+
+
+                    toastNotification.textContent =
+                        "Something went wrong. Please try again.";
+
+
+                    toastNotification.style.backgroundColor =
+                        "#c0392b";
+
+
+                    toastNotification.classList.add(
+                        "show"
+                    );
+
+
+                    setTimeout(
+
+                        function() {
+
+                            toastNotification.classList.remove(
+                                "show"
+                            );
+
+                        },
+
+                        3000
+
+                    );
+
+                }
+
+            );
+
+        }
+
+    );
+
+
 </script>
 
+
 </body>
+
 </html>

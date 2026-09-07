@@ -67,7 +67,7 @@ a {
     --green-dark: #173d21;
     --green-light: #729263;
     --cream: #fffdf8;
-    --cream-2: #f3f2e8;
+    --cream-2: #f3f2e8 ;
     --brown: #7a4926;
     --text: #141814;
 }
@@ -112,14 +112,14 @@ a {
 ========================================================= */
 
 .brand-mark {
-    width: 64px;
-    height: 64px;
+    width: 150px;
+    height: 100px;
 
     display: block;
 
     flex-shrink: 0;
 
-    background: url("vdvc.png") center center / contain no-repeat;
+    background: url("vdvclogo.png") center center / contain no-repeat;
 
     border: none;
     border-radius: 0;
@@ -2943,7 +2943,7 @@ mask-image:
 
 
                 <div class="about-stat-number">
-                    USA
+                    PHILIPPINES
                 </div>
 
 
@@ -3545,7 +3545,7 @@ mask-image:
             <div class="footer-brand">
 
 <div class="footer-logo">
-    <img src="vdvc.png" alt="VDVC Egg Farm Logo">
+    <img src="vdvclogoo.png" alt="VDVC Egg Farm Logo">
 </div>
 
                 <div>
