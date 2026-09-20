@@ -814,15 +814,12 @@ button {
    PAGE
    ========================================================= */
 .delivery-page {
-
     width: 100%;
+    min-height: 100vh;
 
-    padding: 0;
+    padding: 8px 12px;
 
-    max-width: none;
-
-    margin: 0;
-
+    box-sizing: border-box;
 }
 /* =========================================================
    MAIN CONTENT
@@ -848,15 +845,26 @@ button {
    OUTER CARD
    ========================================================= */
 
-.delivery-outer-card {
-    background: #ffffff;
-    border: 1px solid #dfe7e2;
-    border-radius: 14px;
-    box-shadow:
-        0 2px 8px rgba(0,0,0,.045);
-    padding: 20px;
-}
 
+.delivery-outer-card {
+    width: 100%;
+    min-height: calc(100vh - 16px);
+
+    margin: 0 auto;
+
+    background: #ffffff;
+
+    border: 1px solid #dddcd6;
+
+    border-radius: 24px;
+
+    overflow: hidden;
+
+    box-sizing: border-box;
+
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.03);
+}
 /* =========================================================
    HEADER
    ========================================================= */
@@ -1013,57 +1021,412 @@ button {
 .notification-footer:hover {
     background: #f4faf6;
 }
+/* =========================================================
+   DELIVERY PAGE HEADER
+========================================================= */
+
+.delivery-page-header {
+    min-height: 86px;
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 28px;
+
+    background: #f7f6f2;
+
+    border-bottom: 1px solid #dddcd6;
+
+    box-sizing: border-box;
+}
+
 
 /* =========================================================
-   MANAGER ACCOUNT
-   ========================================================= */
+   HEADER LEFT
+========================================================= */
 
-.manager-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: #dcefe2;
-    color: #247b46;
+.delivery-header-left {
+    display: flex;
+    align-items: center;
+}
+
+.delivery-header-left h1 {
+    margin: 0;
+
+    font-size: 1.35rem;
+    font-weight: 700;
+
+    color: #3f4b45;
+
+    letter-spacing: -0.3px;
+}
+
+
+/* =========================================================
+   HEADER RIGHT
+========================================================= */
+
+.delivery-header-right {
+    display: flex;
+    align-items: center;
+
+    gap: 18px;
+
+    height: 100%;
+}
+
+
+/* =========================================================
+   NOTIFICATION
+========================================================= */
+
+.delivery-notification-wrapper {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+}
+
+.delivery-notification-icon {
+    width: 40px;
+    height: 40px;
+
+    border: none;
+    background: transparent;
+
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+
+    position: relative;
+
+    cursor: pointer;
+
+    color: #65716b;
+
+    font-size: 1.2rem;
+
+    transition: 0.2s ease;
+}
+
+.delivery-notification-icon:hover {
+    color: #527d59;
+}
+
+
+/* notification badge */
+
+.delivery-notification-badge {
+    position: absolute;
+
+    top: 1px;
+    right: 0;
+
+    min-width: 17px;
+    height: 17px;
+
+    padding: 0 4px;
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #527d59;
+    color: #ffffff;
+
+    font-size: 0.58rem;
     font-weight: 700;
-    border: 2px solid white;
+
+    border: 2px solid #f7f6f2;
+}
+
+
+/* =========================================================
+   HEADER DIVIDER
+========================================================= */
+
+.delivery-header-divider {
+    width: 1px;
+    height: 42px;
+
+    background: #deded8;
+}
+
+
+/* =========================================================
+   MANAGER PROFILE
+========================================================= */
+
+.delivery-manager-profile-header {
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    min-width: 230px;
+}
+
+
+/* =========================================================
+   MANAGER AVATAR
+========================================================= */
+
+.delivery-manager-avatar {
+    width: 54px;
+    height: 54px;
+
+    min-width: 54px;
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #e8ebe7;
+
+    border: 1px solid #d9ddd8;
+
+    color: #527d59;
+
+    font-size: 1.25rem;
+
     box-shadow:
-        0 1px 4px rgba(0,0,0,.08);
+        0 2px 6px
+        rgba(0, 0, 0, 0.04);
 }
 
-.manager-details {
-    line-height: 1.35;
+
+/* =========================================================
+   MANAGER ACCOUNT
+========================================================= */
+
+.delivery-manager-account {
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+
+    min-width: 120px;
 }
 
-.manager-name {
-    font-size: 12px;
+.delivery-manager-account strong {
+    display: block;
+
+    margin: 0;
+
+    color: #3f4b45;
+
+    font-size: 0.88rem;
     font-weight: 700;
-    color: #222;
+
+    line-height: 1.2;
 }
 
-.manager-role {
-    font-size: 10px;
-    color: #777;
+
+/* =========================================================
+   DATE AND TIME
+========================================================= */
+
+.delivery-manager-date-time {
+    display: flex;
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 2px;
+
+    margin-top: 5px;
+
+    white-space: nowrap;
 }
 
-.manager-date {
-    font-size: 10px;
-    color: #68716d;
-    margin-top: 1px;
+.delivery-manager-date {
+    font-size: 0.63rem;
+
+    color: #8a9590;
 }
 
-.manager-time {
+.delivery-manager-time {
+    font-size: 0.63rem;
+
+    color: #527d59;
+
+    font-weight: 600;
+
+    line-height: 1.2;
+}
+
+
+/* =========================================================
+   DROPDOWN ICON
+========================================================= */
+
+.delivery-manager-dropdown-icon {
+    width: 28px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #65716b;
+
+    font-size: 0.7rem;
+
+    cursor: pointer;
+}
+
+
+/* =========================================================
+   NOTIFICATION DROPDOWN
+========================================================= */
+
+.delivery-notification-dropdown {
+    display: none;
+
+    position: absolute;
+
+    right: 0;
+    top: 48px;
+
+    width: 320px;
+
+    background: #ffffff;
+
+    border: 1px solid #e1e4e1;
+
+    border-radius: 10px;
+
+    box-shadow:
+        0 10px 25px
+        rgba(60, 70, 60, 0.12);
+
+    z-index: 1000;
+
+    overflow: hidden;
+}
+
+.delivery-notification-dropdown.show {
+    display: block;
+}
+
+
+/* dropdown header */
+
+.delivery-notification-dropdown-header {
+    padding: 12px 16px;
+
+    border-bottom: 1px solid #e4e7e4;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.delivery-notification-dropdown-header p {
+    margin: 0;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    color: #3f4b45;
+}
+
+.delivery-notification-dropdown-header span {
+    display: block;
+
+    margin-top: 2px;
+
     font-size: 10px;
-    color: #247b46;
+
+    color: #9aa29e;
+}
+
+.delivery-notification-dropdown-header strong {
+    font-size: 10px;
+
+    color: #b27a28;
+
+    font-weight: 500;
+}
+
+
+/* notification list */
+
+.delivery-notification-list {
+    max-height: 320px;
+
+    overflow-y: auto;
+}
+
+.delivery-notification-item {
+    display: block;
+
+    padding: 12px 16px;
+
+    border-bottom: 1px solid #f0f1ef;
+
+    text-decoration: none;
+
+    transition: background 0.15s ease;
+}
+
+.delivery-notification-item:hover {
+    background: #f8faf8;
+}
+
+.delivery-notification-item-name {
+    font-size: 11px;
+
+    font-weight: 600;
+
+    color: #3f4b45;
+}
+
+.delivery-notification-item-text {
+    margin-top: 3px;
+
+    font-size: 10px;
+
+    color: #6f7974;
+}
+
+.delivery-notification-empty {
+    padding: 28px 16px;
+
+    text-align: center;
+
+    font-size: 11px;
+
+    color: #8b9590;
+}
+
+
+/* dropdown footer */
+
+.delivery-notification-footer {
+    display: block;
+
+    padding: 10px;
+
+    text-align: center;
+
+    border-top: 1px solid #edf1ee;
+
+    color: #328e51;
+
+    font-size: 11px;
     font-weight: 700;
+
+    text-decoration: none;
 }
 
-.manager-arrow {
-    font-size: 10px;
-    color: #555;
+.delivery-notification-footer:hover {
+    background: #f4faf6;
 }
 
 /* =========================================================
@@ -1072,11 +1435,14 @@ button {
 
 .top-grid {
     display: grid;
+
     grid-template-columns:
         minmax(0, 1.35fr)
         minmax(300px, .95fr);
+
     gap: 15px;
-    margin-bottom: 15px;
+
+    margin: 20px 20px 15px 20px;
 }
 
 /* =========================================================
@@ -1458,11 +1824,11 @@ button {
    ========================================================= */
 
 .bottom-grid {
-    display: grid;
-    grid-template-columns:
-        minmax(0, 3.15fr)
-        minmax(230px, .85fr);
-    gap: 15px;
+    display: block;
+
+    width: auto;
+
+    margin: 0 20px 20px 20px;
 }
 
 /* =========================================================
@@ -1936,64 +2302,20 @@ button {
         width: 100%;
     }
 }
-
 @media (max-width: 800px) {
 
-    .delivery-page {
-        padding: 12px;
+    .delivery-header-right {
+        gap: 10px;
     }
 
-    .delivery-outer-card {
-        padding: 13px;
+    .delivery-manager-profile-header {
+        min-width: auto;
     }
 
-    .page-header {
-        align-items: flex-start;
-    }
-
-    .manager-profile {
-        gap: 6px;
-    }
-
-    .manager-details {
+    .delivery-manager-dropdown-icon {
         display: none;
     }
 
-    .sms-info-row {
-        grid-template-columns: 1fr;
-        gap: 13px;
-    }
-
-    .info-box {
-        border-right: 0;
-        border-bottom: 1px solid #edf0ee;
-        padding: 0 0 12px;
-    }
-
-    .info-box:last-child {
-        border-bottom: 0;
-        padding-left: 0;
-    }
-
-    .table-tools {
-        flex-wrap: wrap;
-    }
-
-    .delivery-table-header {
-        height: auto;
-        padding: 12px;
-        gap: 10px;
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .search-input {
-        width: 180px;
-    }
-
-    .notification-dropdown {
-        right: -50px;
-    }
 }
 
 @media (max-width: 600px) {
@@ -2043,58 +2365,82 @@ button {
 >
 
 <?php include('manager_panel.php'); ?>
-
 <div class="main-content">
 
 <div class="delivery-page">
 
 <div class="delivery-outer-card">
 
-<!-- =====================================================
-     PAGE HEADER
-     ===================================================== -->
+<!-- =========================================================
+     DELIVERY PAGE HEADER
+========================================================= -->
 
-<div class="page-header">
+<div class="delivery-page-header">
 
-    <div>
 
-        <h1 class="page-title">
+    <!-- =====================================================
+         HEADER LEFT
+    ====================================================== -->
+
+    <div class="delivery-header-left">
+
+        <h1>
             Delivery Management
         </h1>
-
-        <p class="page-subtitle">
-            Manage confirmed deliveries and send SMS
-            notifications to customers
-        </p>
 
     </div>
 
 
-    <div class="manager-profile">
+    <!-- =====================================================
+         HEADER RIGHT
+    ====================================================== -->
 
-        <!-- NOTIFICATION -->
+    <div class="delivery-header-right">
 
-        <div class="notification-wrap">
+
+        <!-- =================================================
+             NOTIFICATION
+        ================================================== -->
+
+        <div
+            class="delivery-notification-wrapper"
+            id="notificationWrapper"
+        >
 
             <button
                 type="button"
-                class="notification-button"
                 id="notificationButton"
+                class="delivery-notification-icon"
                 aria-label="Notifications"
+                aria-expanded="false"
             >
 
-                <span>
-                    🔔
-                </span>
+                <i class="fa-regular fa-bell"></i>
+
 
                 <?php if ($notification_count > 0): ?>
 
                     <span
-                        class="notification-badge"
+                        id="notificationBadge"
+                        class="delivery-notification-badge"
                     >
+
                         <?php
-                        echo $notification_count;
+
+                        if (
+                            $notification_count > 99
+                        ) {
+
+                            echo '99+';
+
+                        } else {
+
+                            echo $notification_count;
+
+                        }
+
                         ?>
+
                     </span>
 
                 <?php endif; ?>
@@ -2102,19 +2448,56 @@ button {
             </button>
 
 
+            <!-- =============================================
+                 NOTIFICATION DROPDOWN
+            ============================================== -->
+
             <div
-                class="notification-dropdown"
                 id="notificationDropdown"
+                class="delivery-notification-dropdown"
             >
 
+                <!-- DROPDOWN HEADER -->
+
                 <div
-                    class="notification-dropdown-header"
+                    class="delivery-notification-dropdown-header"
                 >
-                    Notifications
+
+                    <div>
+
+                        <p>
+                            Notifications
+                        </p>
+
+                        <span>
+                            Pending reservation requests
+                        </span>
+
+                    </div>
+
+
+                    <?php if ($notification_count > 0): ?>
+
+                        <strong>
+
+                            <?php
+                            echo $notification_count;
+                            ?>
+
+                            pending
+
+                        </strong>
+
+                    <?php endif; ?>
+
                 </div>
 
 
-                <div class="notification-list">
+                <!-- NOTIFICATION LIST -->
+
+                <div
+                    class="delivery-notification-list"
+                >
 
                     <?php
                     if (
@@ -2139,43 +2522,48 @@ button {
                                     ]
                                 );
                                 ?>"
-                                class="notification-item"
+                                class="delivery-notification-item"
                             >
 
-                                <div
-                                    class="notification-item-name"
-                                >
+                                <div>
 
-                                    <?php
+                                    <div
+                                        class="delivery-notification-item-name"
+                                    >
 
-                                    $notification_customer =
-                                        $notification[
-                                            'customer_name'
-                                        ];
-
-                                    if (
-                                        $notification_customer ==
-                                        ''
-                                    ) {
+                                        <?php
 
                                         $notification_customer =
-                                            'Customer';
-                                    }
+                                            $notification[
+                                                'customer_name'
+                                            ];
 
-                                    echo htmlspecialchars(
-                                        $notification_customer
-                                    );
+                                        if (
+                                            $notification_customer ==
+                                            ''
+                                        ) {
 
-                                    ?>
+                                            $notification_customer =
+                                                'Customer';
+                                        }
 
-                                </div>
+                                        echo htmlspecialchars(
+                                            $notification_customer
+                                        );
 
-                                <div
-                                    class="notification-item-text"
-                                >
+                                        ?>
 
-                                    New reservation
-                                    waiting for review.
+                                    </div>
+
+
+                                    <div
+                                        class="delivery-notification-item-text"
+                                    >
+
+                                        New reservation
+                                        waiting for review.
+
+                                    </div>
 
                                 </div>
 
@@ -2185,24 +2573,29 @@ button {
                         endforeach;
                         ?>
 
+
                     <?php else: ?>
 
+
                         <div
-                            class="notification-empty"
+                            class="delivery-notification-empty"
                         >
 
                             No new notifications.
 
                         </div>
 
+
                     <?php endif; ?>
 
                 </div>
 
 
+                <!-- DROPDOWN FOOTER -->
+
                 <a
                     href="manager_reservation.php"
-                    class="notification-footer"
+                    class="delivery-notification-footer"
                 >
                     View Reservations
                 </a>
@@ -2212,114 +2605,102 @@ button {
         </div>
 
 
-        <!-- MANAGER AVATAR -->
+        <!-- =================================================
+             HEADER DIVIDER
+        ================================================== -->
 
-        <div class="manager-avatar">
+        <div
+            class="delivery-header-divider"
+        ></div>
 
-            <?php
 
-            $initials = '';
+        <!-- =================================================
+             MANAGER PROFILE
+        ================================================== -->
 
-            $name_parts =
-                explode(
-                    ' ',
-                    trim($manager_name)
-                );
+        <div
+            class="delivery-manager-profile-header"
+        >
 
-            if (
-                isset(
-                    $name_parts[0]
-                )
-            ) {
 
-                $initials .=
-                    strtoupper(
-                        substr(
-                            $name_parts[0],
-                            0,
-                            1
-                        )
-                    );
-            }
+            <!-- MANAGER AVATAR -->
 
-            if (
-                isset(
-                    $name_parts[1]
-                )
-            ) {
+            <div
+                class="delivery-manager-avatar"
+            >
 
-                $initials .=
-                    strtoupper(
-                        substr(
-                            $name_parts[1],
-                            0,
-                            1
-                        )
-                    );
-            }
+                <i class="fa-solid fa-user"></i>
 
-            if ($initials == '') {
+            </div>
 
-                $initials = 'M';
-            }
 
-            echo htmlspecialchars(
-                $initials
-            );
+            <!-- MANAGER INFORMATION -->
 
-            ?>
+            <div
+                class="delivery-manager-account"
+            >
+
+                <strong>
+                    Manager
+                </strong>
+
+
+                <!-- DATE AND TIME -->
+
+                <div
+                    class="delivery-manager-date-time"
+                >
+
+                    <span
+                        id="managerDate"
+                        class="delivery-manager-date"
+                    >
+
+                        <?php
+                        echo date(
+                            'F d, Y'
+                        );
+                        ?>
+
+                    </span>
+
+
+                    <span
+                        id="managerTime"
+                        class="delivery-manager-time"
+                    >
+
+                        <?php
+                        echo date(
+                            'h:i:s A'
+                        );
+                        ?>
+
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <!-- DROPDOWN ICON -->
+
+            <div
+                class="delivery-manager-dropdown-icon"
+            >
+
+                <i
+                    class="fa-solid fa-chevron-down"
+                ></i>
+
+            </div>
+
 
         </div>
 
-
-        <!-- MANAGER ACCOUNT -->
-
-        <div class="manager-details">
-
-            <div class="manager-name">
-
-                <?php
-                echo htmlspecialchars(
-                    $manager_name
-                );
-                ?>
-
-            </div>
-
-            <div class="manager-role">
-                Manager
-            </div>
-
-            <div
-                class="manager-date"
-                id="managerDate"
-            >
-                <?php
-                echo date(
-                    'F d, Y'
-                );
-                ?>
-            </div>
-
-            <div
-                class="manager-time"
-                id="managerTime"
-            >
-                <?php
-                echo date(
-                    'h:i:s A'
-                );
-                ?>
-            </div>
-
-        </div>
-
-
-        <span class="manager-arrow">
-            ▼
-        </span>
 
     </div>
+
 
 </div>
 
@@ -3401,99 +3782,7 @@ echo strtoupper(
     </div>
 
 
-    <!-- QUICK ACTIONS -->
 
-    <div class="card quick-card">
-
-        <div class="quick-header">
-
-            <span class="quick-icon">
-                ⚡
-            </span>
-
-            <span class="quick-title">
-                QUICK ACTIONS
-            </span>
-
-        </div>
-
-
-        <div class="quick-body">
-
-            <a
-                href="manager_delivery.php"
-                class="quick-action"
-            >
-
-                <span
-                    class="quick-action-icon"
-                >
-                    🚚
-                </span>
-
-                <span>
-                    View All Deliveries
-                </span>
-
-            </a>
-
-
-            <a
-                href="manager_delivery_history.php"
-                class="quick-action"
-            >
-
-                <span
-                    class="quick-action-icon"
-                >
-                    ◴
-                </span>
-
-                <span>
-                    Delivery History
-                </span>
-
-            </a>
-
-
-            <a
-                href="manager_sms_history.php"
-                class="quick-action"
-            >
-
-                <span
-                    class="quick-action-icon"
-                >
-                    ●
-                </span>
-
-                <span>
-                    SMS History
-                </span>
-
-            </a>
-
-
-            <a
-                href="manager_delivery_reports.php"
-                class="quick-action"
-            >
-
-                <span
-                    class="quick-action-icon"
-                >
-                    ▥
-                </span>
-
-                <span>
-                    Delivery Reports
-                </span>
-
-            </a>
-
-        </div>
-
-    </div>
 
 </div>
 

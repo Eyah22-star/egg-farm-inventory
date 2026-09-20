@@ -3,6 +3,7 @@ ob_start();
 
 if (session_id() == '') {
     session_start();
+    date_default_timezone_set('Asia/Manila');
 }
 
 require 'db.php';
@@ -250,7 +251,17 @@ function getActivityIcon($status)
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
     >
 
-    <style>
+ 
+<style>
+
+/* =========================================================
+   GLOBAL
+========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
 html,
 body {
     margin: 0;
@@ -258,763 +269,1731 @@ body {
     width: 100%;
     min-height: 100%;
 }
-        /* =====================================================
-           MAIN CONTENT
-        ===================================================== */
 
-     .main-content {
+body {
     min-height: 100vh;
-    padding: 30px;
-    box-sizing: border-box;
-    background: #f4f2eb;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    background: #f3f1eb;
+
+    color: #3f4b45;
 }
 
 
-        /* =====================================================
-           DASHBOARD CONTAINER
-        ===================================================== */
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+
+.main-content {
+
+    margin-left: 312px;
+
+    min-height: 100vh;
+
+    padding: 18px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #eeece6 0%,
+            #f5f3ed 100%
+        );
+}
+
+
+/* =========================================================
+   CUSTOMER DASHBOARD OUTER CARD
+========================================================= */
+
 .customer-dashboard-wrapper {
-    max-width: 1600px;
-    margin: 0 auto;
 
-    /* Same style as Manager Dashboard outer card */
-    background: #f7f6f1;
+    width: 100%;
 
-    border: 1px solid #e2e1da;
+    min-height:
+        calc(100vh - 36px);
 
-    border-radius: 28px;
+    overflow: hidden;
 
-    padding: 28px;
+    background: #ffffff;
+
+    border:
+        1px solid #dedbd2;
+
+    border-radius: 22px;
 
     box-shadow:
-        0 8px 30px rgba(70, 80, 73, 0.05);
+        0 12px 35px
+        rgba(
+            80,
+            72,
+            55,
+            0.10
+        );
+
+    padding: 0;
 }
 
 
-        /* =====================================================
-           HEADER
-        ===================================================== */
+/* =========================================================
+   CUSTOMER DASHBOARD HEADER
+   SAME STYLE AS RESERVATION / MANAGER HEADER
+========================================================= */
 
-        .dashboard-header {
-            margin-bottom: 28px;
-        }
+.customer-dashboard-topbar {
 
-        .dashboard-header h1 {
-            margin: 0;
-            font-size: 30px;
-            font-weight: 700;
-            color: #3f342c;
-            letter-spacing: -0.5px;
-        }
+    min-height:
+        86px;
 
-        .dashboard-header h1 span {
-            font-size: 28px;
-        }
+    width:
+        100%;
 
-        .dashboard-header p {
-            margin: 7px 0 0;
-            font-size: 14px;
-            color: #786f67;
-        }
+    display:
+        flex;
 
+    align-items:
+        center;
 
-        /* =====================================================
-           SUMMARY CARDS
-        ===================================================== */
+    justify-content:
+        space-between;
 
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 18px;
-            margin-bottom: 22px;
-        }
+    padding:
+        0 28px;
+
+    background:
+        #f7f6f2;
+
+    border-bottom:
+        1px solid #dddcd6;
+
+    box-sizing:
+        border-box;
+}
 
 
-       .summary-card {
-    min-height: 108px;
-    background: #fffdf8;
-    border: 1px solid #e8e0d2;
-    border-radius: 14px;
-    padding: 20px 22px;
-    box-sizing: border-box;
+/* =========================================================
+   HEADER TITLE
+========================================================= */
 
-    display: flex;
-    align-items: center;
+.customer-page-title {
+
+    margin:
+        0;
+
+    font-size:
+        1.35rem;
+
+    font-weight:
+        700;
+
+    color:
+        #3f4b45;
+
+    letter-spacing:
+        -0.3px;
+}
+
+
+/* =========================================================
+   HEADER RIGHT
+========================================================= */
+
+.customer-topbar-right {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        18px;
+
+    height:
+        100%;
+}
+
+
+/* =========================================================
+   NOTIFICATION
+========================================================= */
+
+.customer-top-notification {
+
+    position:
+        relative;
+
+    width:
+        40px;
+
+    height:
+        40px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    text-decoration:
+        none;
+
+    color:
+        #65716b;
+
+    font-size:
+        1.2rem;
+
+    transition:
+        0.2s ease;
+}
+
+
+.customer-top-notification:hover {
+
+    color:
+        #527d59;
+}
+
+
+/* =========================================================
+   NOTIFICATION BADGE
+========================================================= */
+
+.customer-notification-badge {
+
+    position:
+        absolute;
+
+    top:
+        1px;
+
+    right:
+        0;
+
+    min-width:
+        17px;
+
+    height:
+        17px;
+
+    padding:
+        0 4px;
+
+    border-radius:
+        50%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    background:
+        #527d59;
+
+    color:
+        #ffffff;
+
+    font-size:
+        0.58rem;
+
+    font-weight:
+        700;
+
+    border:
+        2px solid #f7f6f2;
+}
+
+
+/* =========================================================
+   HEADER DIVIDER
+========================================================= */
+
+.customer-topbar-divider {
+
+    width:
+        1px;
+
+    height:
+        42px;
+
+    background:
+        #deded8;
+}
+
+
+/* =========================================================
+   CUSTOMER PROFILE
+========================================================= */
+
+.customer-top-profile {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        11px;
+
+    min-width:
+        190px;
+
+    text-decoration:
+        none;
+
+    color:
+        #3f4b45;
+}
+
+
+/* =========================================================
+   CUSTOMER AVATAR
+========================================================= */
+
+.customer-avatar {
+
+    width:
+        54px;
+
+    height:
+        54px;
+
+    min-width:
+        54px;
+
+    border-radius:
+        50%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    background:
+        #e8ebe7;
+
+    border:
+        1px solid #d9ddd8;
+
+    color:
+        #527d59;
+
+    font-size:
+        1.25rem;
 
     box-shadow:
-        0 5px 18px rgba(89, 68, 46, 0.06);
+        0 2px 6px
+        rgba(
+            0,
+            0,
+            0,
+            0.04
+        );
+}
+
+
+/* =========================================================
+   CUSTOMER ACCOUNT DETAILS
+========================================================= */
+
+.customer-account-details {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    justify-content:
+        center;
+
+    min-width:
+        100px;
+}
+
+
+/* =========================================================
+   CUSTOMER NAME
+========================================================= */
+
+.customer-top-name {
+
+    display:
+        block;
+
+    margin:
+        0;
+
+    color:
+        #3f4b45;
+
+    font-size:
+        0.88rem;
+
+    font-weight:
+        700;
+
+    line-height:
+        1.2;
+}
+
+
+/* =========================================================
+   DATE AND LIVE TIME
+========================================================= */
+
+.customer-date-time {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        flex-start;
+
+    gap:
+        2px;
+
+    margin-top:
+        5px;
+
+    white-space:
+        nowrap;
+}
+
+
+.customer-date {
+
+    font-size:
+        0.63rem;
+
+    color:
+        #8a9590;
+
+    line-height:
+        1.2;
+}
+
+
+.customer-time {
+
+    font-size:
+        0.63rem;
+
+    color:
+        #527d59;
+
+    font-weight:
+        600;
+
+    line-height:
+        1.2;
+
+    white-space:
+        nowrap;
+}
+
+
+/* =========================================================
+   DROPDOWN ICON
+========================================================= */
+
+.customer-dropdown-icon {
+
+    width:
+        28px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    color:
+        #65716b;
+
+    font-size:
+        0.7rem;
+}
+
+/* =========================================================
+   DASHBOARD CONTENT
+========================================================= */
+
+.customer-dashboard-content {
+
+    width:
+        100%;
+
+    padding:
+        22px 28px 28px;
+}
+
+
+/* =========================================================
+   DASHBOARD GREETING
+========================================================= */
+
+.dashboard-header {
+
+    margin-bottom:
+        24px;
+}
+
+
+.greeting-wrapper {
+
+    display:
+        flex;
+
+    align-items:
+        flex-start;
+
+    gap:
+        10px;
+}
+
+
+.greeting-icon {
+
+    color:
+        #315f4a;
+
+    font-size:
+        22px;
+
+    margin-top:
+        4px;
+}
+
+
+.greeting-text-container {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+}
+
+
+.dashboard-header h1 {
+
+    margin:
+        0;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size:
+        25px;
+
+    font-weight:
+        700;
+
+    color:
+        #315f4a;
+
+    letter-spacing:
+        0.5px;
+
+    line-height:
+        1.1;
+}
+
+
+.dashboard-header h1 span {
+
+    font-size:
+        25px;
+}
+
+
+.dashboard-header p {
+
+    margin:
+        5px 0 0;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    font-size:
+        13px;
+
+    font-weight:
+        400;
+
+    color:
+        #77817b;
+
+    letter-spacing:
+        0.2px;
+}
+
+
+/* =========================================================
+   SUMMARY CARDS
+========================================================= */
+
+.summary-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap:
+        14px;
+
+    margin-bottom:
+        14px;
+}
+
+
+.summary-card {
+
+    min-height:
+        98px;
+
+    padding:
+        15px;
+
+    border-radius:
+        10px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #ffffff 0%,
+            #f8f8f4 100%
+        );
+
+    border:
+        1px solid #e2dfd7;
+
+    box-shadow:
+        0 3px 10px
+        rgba(
+            70,
+            65,
+            55,
+            0.06
+        );
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    transition:
+        0.2s ease;
+}
+
+
+.summary-card:hover {
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        0 8px 18px
+        rgba(
+            70,
+            65,
+            55,
+            0.10
+        );
+}
+
+
+/* =========================================================
+   SUMMARY ICON
+========================================================= */
+
+.summary-icon {
+
+    width:
+        42px;
+
+    height:
+        42px;
+
+    min-width:
+        42px;
+
+    border-radius:
+        50%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    font-size:
+        18px;
+
+    margin-right:
+        12px;
+}
+
+
+.summary-icon.account {
+
+    background:
+        #e9f1e6;
+
+    color:
+        #527d59;
+}
+
+
+.summary-icon.reservation {
+
+    background:
+        #eee9f7;
+
+    color:
+        #70558c;
+}
+
+
+.summary-icon.trays {
+
+    background:
+        #e6f0f4;
+
+    color:
+        #3e7182;
+}
+
+
+.summary-content {
+
+    min-width:
+        0;
+}
+
+
+.summary-content span {
+
+    display:
+        block;
+
+    font-size:
+        13px;
+
+    font-weight:
+        700;
+
+    color:
+        #59635c;
+}
+
+
+.summary-content h2 {
+
+    margin:
+        6px 0 0;
+
+    font-size:
+        24px;
+
+    color:
+        #38433d;
+
+    font-weight:
+        700;
+}
+
+
+.summary-content small {
+
+    display:
+        block;
+
+    margin-top:
+        6px;
+
+    font-size:
+        11px;
+
+    color:
+        #8b9089;
+}
+
+
+/* =========================================================
+   MAIN DASHBOARD GRID
+========================================================= */
+
+.dashboard-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        1.2fr 0.9fr;
+
+    gap:
+        14px;
+}
+
+
+/* =========================================================
+   DASHBOARD CARD
+========================================================= */
+
+.dashboard-card {
+
+    min-width:
+        0;
+
+    overflow:
+        hidden;
+
+    border-radius:
+        10px;
+
+    border:
+        1px solid #e2dfd7;
+
+    background:
+        #ffffff;
+
+    box-shadow:
+        0 3px 10px
+        rgba(
+            70,
+            65,
+            55,
+            0.05
+        );
+}
+
+
+/* =========================================================
+   CARD HEADER
+========================================================= */
+
+.card-header {
+
+    min-height:
+        50px;
+
+    padding:
+        0 16px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    border-bottom:
+        1px solid #e9e6df;
+}
+
+
+.card-title {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+}
+
+
+.card-title-icon {
+
+    width:
+        30px;
+
+    height:
+        30px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    border-radius:
+        50%;
+
+    background:
+        #eef3ed;
+
+    color:
+        #527d59;
+
+    font-size:
+        14px;
+}
+
+
+.card-title-text h2 {
+
+    margin:
+        0;
+
+    font-size:
+        14px;
+
+    font-weight:
+        700;
+
+    color:
+        #3f4b45;
+}
+
+
+.card-title-text p {
+
+    margin:
+        4px 0 0;
+
+    font-size:
+        10px;
+
+    color:
+        #8a9089;
+}
+
+
+.view-all-btn {
+
+    font-size:
+        11px;
+
+    font-weight:
+        700;
+
+    color:
+        #527d59;
+
+    text-decoration:
+        none;
+}
+
+
+.view-all-btn:hover {
+
+    text-decoration:
+        underline;
+}
+
+
+/* =========================================================
+   STOCK TABLE
+========================================================= */
+
+.stock-table-container {
+
+    width:
+        100%;
+
+    overflow-x:
+        auto;
+
+    padding:
+        10px 12px;
+}
+
+
+.stock-table {
+
+    width:
+        100%;
+
+    border-collapse:
+        collapse;
+
+    font-size:
+        11px;
+}
+
+
+.stock-table thead {
+
+    background:
+        #edf0eb;
+}
+
+
+.stock-table th {
+
+    padding:
+        9px 8px;
+
+    color:
+        #627068;
+
+    font-size:
+        11px;
+
+    font-weight:
+        700;
+
+    text-align:
+        left;
+
+    white-space:
+        nowrap;
+}
+
+
+.stock-table td {
+
+    padding:
+        12px 10px;
+
+    color:
+        #59635c;
+
+    border-bottom:
+        1px solid #eceae4;
+
+    font-size:
+        13px;
+}
+
+
+.stock-table tbody tr:last-child td {
+
+    border-bottom:
+        none;
+}
+
+
+.stock-table tbody tr:hover {
+
+    background:
+        #fafaf7;
+}
+
+
+.stock-number {
+
+    font-size:
+        17px;
+
+    font-weight:
+        700;
+
+    color:
+        #46554d;
+}
+
+
+.stock-status {
+
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        7px;
+
+    font-size:
+        11px;
+
+    color:
+        #527d59;
+
+    font-weight:
+        700;
+}
+
+
+.status-dot {
+
+    width:
+        7px;
+
+    height:
+        7px;
+
+    border-radius:
+        50%;
+
+    background:
+        #527d59;
+}
+
+
+/* =========================================================
+   STOCK FOOTER
+========================================================= */
+
+.stock-footer {
+
+    padding:
+        12px 14px 16px;
+}
+
+
+.stock-info {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        8px;
+
+    color:
+        #8a9089;
+
+    font-size:
+        10px;
+
+    margin-bottom:
+        14px;
+}
+
+
+.stock-info i {
+
+    color:
+        #527d59;
+}
+
+
+.reservation-button {
+
+    width:
+        100%;
+
+    max-width:
+        220px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        9px;
+
+    padding:
+        12px 18px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #527d59,
+            #315f4a
+        );
+
+    color:
+        #ffffff;
+
+    border-radius:
+        8px;
+
+    text-decoration:
+        none;
+
+    font-size:
+        13px;
+
+    font-weight:
+        600;
+
+    box-shadow:
+        0 5px 12px
+        rgba(
+            49,
+            95,
+            74,
+            0.18
+        );
 
     transition:
         transform 0.2s ease,
         box-shadow 0.2s ease;
 }
 
-        .summary-card:hover {
-            transform: translateY(-3px);
 
-            box-shadow:
-                0 10px 25px rgba(89, 68, 46, 0.10);
-        }
+.reservation-button:hover {
 
-
-        /* =====================================================
-           SUMMARY ICON
-        ===================================================== */
-
-        .summary-icon {
-            width: 56px;
-            height: 56px;
-
-            border-radius: 50%;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            font-size: 22px;
-            margin-right: 18px;
-
-            flex-shrink: 0;
-        }
-
-
-        .summary-icon.account {
-            background: #f4eee5;
-            color: #735334;
-        }
-
-        .summary-icon.reservation {
-            background: #eee5f4;
-            color: #76548b;
-        }
-
-        .summary-icon.trays {
-            background: #e4edf2;
-            color: #52758b;
-        }
-
-
-        .summary-content span {
-            display: block;
-            font-size: 12px;
-            color: #746b63;
-            margin-bottom: 5px;
-        }
-
-        .summary-content h2 {
-            margin: 0;
-            font-size: 25px;
-            color: #302923;
-            font-weight: 700;
-        }
-
-        .summary-content small {
-            display: block;
-            margin-top: 6px;
-            font-size: 12px;
-            color: #827970;
-        }
-
-
-        /* =====================================================
-           MAIN DASHBOARD GRID
-        ===================================================== */
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 0.9fr;
-            gap: 18px;
-        }
-
-
-        /* =====================================================
-           DASHBOARD CARD
-        ===================================================== */
-.dashboard-card {
-    background: #fffdf8;
-
-    border: 1px solid #e8e0d2;
-
-    border-radius: 16px;
+    transform:
+        translateY(-2px);
 
     box-shadow:
-        0 5px 18px rgba(89, 68, 46, 0.06);
-
-    overflow: hidden;
+        0 8px 18px
+        rgba(
+            49,
+            95,
+            74,
+            0.25
+        );
 }
 
-        /* =====================================================
-           CARD HEADER
-        ===================================================== */
 
-        .card-header {
-            padding: 20px 22px 14px;
+/* =========================================================
+   RECENT ACTIVITY
+========================================================= */
 
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+.activity-list {
 
+    padding:
+        5px 14px 10px;
 
-        .card-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+    max-height:
+        390px;
 
-
-        .card-title-icon {
-            width: 38px;
-            height: 38px;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            border-radius: 50%;
-
-            background: #f4eee5;
-
-            color: #795a3d;
-
-            font-size: 17px;
-        }
-
-
-        .card-title-text h2 {
-            margin: 0;
-
-            font-size: 17px;
-
-            font-weight: 700;
-
-            color: #443931;
-        }
-
-
-        .card-title-text p {
-            margin: 4px 0 0;
-
-            font-size: 11px;
-
-            color: #80776f;
-        }
-
-
-        .view-all-btn {
-            color: #5d4633;
-
-            text-decoration: none;
-
-            font-size: 12px;
-
-            font-weight: 600;
-
-            transition: color 0.2s ease;
-        }
-
-        .view-all-btn:hover {
-            color: #9b6a38;
-        }
-
-
-        /* =====================================================
-           STOCK TABLE
-        ===================================================== */
-
-        .stock-table-container {
-            padding: 0 18px;
-        }
-
-
-        .stock-table {
-            width: 100%;
-
-            border-collapse: collapse;
-
-            font-size: 13px;
-        }
-
-
-        .stock-table thead {
-            background: #f5f1eb;
-        }
-
-
-        .stock-table th {
-            padding: 13px 14px;
-
-            text-align: left;
-
-            font-size: 11px;
-
-            font-weight: 600;
-
-            color: #625950;
-        }
-
-
-        .stock-table td {
-            padding: 14px;
-
-            color: #554b43;
-
-            border-bottom:
-                1px solid #eee9e2;
-        }
-
-
-        .stock-table tbody tr:last-child td {
-            border-bottom: none;
-        }
-
-
-        .stock-table tbody tr:hover {
-            background: #faf8f4;
-        }
-
-
-        .stock-number {
-            font-size: 17px;
-
-            font-weight: 700;
-
-            color: #312a25;
-        }
-
-
-        .stock-status {
-            display: inline-flex;
-
-            align-items: center;
-
-            gap: 7px;
-
-            font-size: 11px;
-
-            color: #4d7b47;
-
-            font-weight: 500;
-        }
-
-
-        .status-dot {
-            width: 7px;
-
-            height: 7px;
-
-            border-radius: 50%;
-
-            background: #4c8748;
-        }
-
-
-        /* =====================================================
-           STOCK FOOTER
-        ===================================================== */
-
-        .stock-footer {
-            padding: 16px 22px 18px;
-        }
-
-
-        .stock-info {
-            display: flex;
-
-            align-items: center;
-
-            gap: 8px;
-
-            color: #756c64;
-
-            font-size: 10px;
-
-            margin-bottom: 16px;
-        }
-
-
-        .stock-info i {
-            color: #8b6a48;
-        }
-
-
-        .reservation-button {
-            width: 100%;
-
-            max-width: 220px;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            gap: 9px;
-
-            padding: 12px 18px;
-
-            background:
-                linear-gradient(
-                    135deg,
-                    #5b3a22,
-                    #3d2617
-                );
-
-            color: white;
-
-            border-radius: 8px;
-
-            text-decoration: none;
-
-            font-size: 13px;
-
-            font-weight: 600;
-
-            box-shadow:
-                0 5px 12px rgba(77, 47, 25, 0.18);
-
-            transition:
-                transform 0.2s ease,
-                box-shadow 0.2s ease;
-        }
-
-
-        .reservation-button:hover {
-            transform: translateY(-2px);
-
-            box-shadow:
-                0 8px 18px rgba(77, 47, 25, 0.25);
-        }
-
-
-        /* =====================================================
-           RECENT ACTIVITY
-        ===================================================== */
-
-        .activity-list {
-            padding: 0 22px 15px;
-
-            max-height: 390px;
-
-            overflow-y: auto;
-        }
-
-
-        .activity-list::-webkit-scrollbar {
-            width: 5px;
-        }
-
-
-        .activity-list::-webkit-scrollbar-thumb {
-            background: #d7cec3;
-
-            border-radius: 10px;
-        }
-
-
-        .activity-item {
-            display: flex;
-
-            align-items: center;
-
-            gap: 13px;
-
-            padding: 16px 0;
-
-            border-bottom:
-                1px solid #eee9e2;
-        }
-
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-
-        .activity-icon {
-            width: 38px;
-            height: 38px;
-
-            border-radius: 50%;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            flex-shrink: 0;
-
-            font-size: 15px;
-        }
-
-
-        .activity-icon.confirmed {
-            background: #e9f1e7;
-            color: #55834d;
-        }
-
-
-        .activity-icon.completed {
-            background: #e8f0f5;
-            color: #547c95;
-        }
-
-
-        .activity-icon.cancelled {
-            background: #fbe9e6;
-            color: #c65b4e;
-        }
-
-
-        .activity-icon.pending {
-            background: #fbf0dd;
-            color: #b77a2c;
-        }
-
-
-        .activity-icon.default {
-            background: #eeeeee;
-            color: #777777;
-        }
-
-
-        .activity-content {
-            flex: 1;
-
-            min-width: 0;
-        }
-
-
-        .activity-content h4 {
-            margin: 0 0 5px;
-
-            font-size: 12px;
-
-            color: #40372f;
-
-            font-weight: 600;
-        }
-
-
-        .activity-content p {
-            margin: 0;
-
-            font-size: 10px;
-
-            color: #817870;
-        }
-
-
-        .activity-time {
-            font-size: 10px;
-
-            color: #756c64;
-
-            white-space: nowrap;
-        }
-
-
-        /* =====================================================
-           EMPTY STATE
-        ===================================================== */
-
-        .empty-state {
-            padding: 55px 20px;
-
-            text-align: center;
-
-            color: #938a82;
-        }
-
-
-        .empty-state i {
-            font-size: 35px;
-
-            margin-bottom: 12px;
-
-            color: #c4b8aa;
-        }
-
-
-        .empty-state p {
-            margin: 0;
-
-            font-size: 13px;
-        }
-
-
-        /* =====================================================
-           SUPPORT SECTION
-        ===================================================== */
-
-        .support-card {
-            margin-top: 18px;
-
-            min-height: 74px;
-
-            position: relative;
-
-            overflow: hidden;
-
-            display: flex;
-
-            align-items: center;
-
-            padding: 0 24px;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    #fbfaf7,
-                    #f4f1eb
-                );
-
-            border: 1px solid rgba(120, 100, 80, 0.12);
-
-            border-radius: 15px;
-
-            box-shadow:
-                0 5px 18px rgba(89, 68, 46, 0.04);
-        }
-
-
-     .support-icon {
-    width: 48px;
-    height: 48px;
-
-    border-radius: 50%;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    background: #f2ede5;
-    color: #705337;
-
-    margin-right: 16px;
-
-    font-size: 20px;
-
-    position: relative;
-    z-index: 2;
-
-    flex-shrink: 0;
+    overflow-y:
+        auto;
 }
+
+
+.activity-list::-webkit-scrollbar {
+
+    width:
+        5px;
+}
+
+
+.activity-list::-webkit-scrollbar-thumb {
+
+    background:
+        #d9ddd8;
+
+    border-radius:
+        10px;
+}
+
+
+.activity-item {
+
+    min-height:
+        48px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+
+    border-bottom:
+        1px solid #eceae4;
+}
+
+
+.activity-item:last-child {
+
+    border-bottom:
+        none;
+}
+
+
+.activity-icon {
+
+    width:
+        29px;
+
+    height:
+        29px;
+
+    min-width:
+        29px;
+
+    border-radius:
+        50%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    font-size:
+        12px;
+}
+
+
+.activity-icon.confirmed {
+
+    background:
+        #e9f1e6;
+
+    color:
+        #527d59;
+}
+
+
+.activity-icon.completed {
+
+    background:
+        #e6f0f4;
+
+    color:
+        #3e7182;
+}
+
+
+.activity-icon.cancelled {
+
+    background:
+        #fbe9e6;
+
+    color:
+        #c65b4e;
+}
+
+
+.activity-icon.pending {
+
+    background:
+        #fff2df;
+
+    color:
+        #a87932;
+}
+
+
+.activity-icon.default {
+
+    background:
+        #edf1f2;
+
+    color:
+        #54707b;
+}
+
+
+.activity-content {
+
+    flex:
+        1;
+
+    min-width:
+        0;
+}
+
+
+.activity-content h4 {
+
+    margin:
+        0 0 4px;
+
+    font-size:
+        12px;
+
+    color:
+        #4d5851;
+
+    font-weight:
+        700;
+}
+
+
+.activity-content p {
+
+    margin:
+        0;
+
+    font-size:
+        10px;
+
+    color:
+        #8a9089;
+}
+
+
+.activity-time {
+
+    font-size:
+        10px;
+
+    color:
+        #969a94;
+
+    white-space:
+        nowrap;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+.empty-state {
+
+    padding:
+        35px 15px;
+
+    text-align:
+        center;
+
+    color:
+        #92968f;
+}
+
+
+.empty-state i {
+
+    font-size:
+        35px;
+
+    margin-bottom:
+        12px;
+
+    color:
+        #c4c9c4;
+}
+
+
+.empty-state p {
+
+    margin:
+        0;
+
+    font-size:
+        11px;
+}
+
+
+/* =========================================================
+   SUPPORT SECTION
+========================================================= */
+
+.support-card {
+
+    margin-top:
+        14px;
+
+    min-height:
+        74px;
+
+    position:
+        relative;
+
+    overflow:
+        hidden;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    padding:
+        0 24px;
+
+    background:
+        linear-gradient(
+            90deg,
+            #fbfaf7,
+            #f4f2eb
+        );
+
+    border:
+        1px solid #e2dfd7;
+
+    border-radius:
+        10px;
+
+    box-shadow:
+        0 3px 10px
+        rgba(
+            70,
+            65,
+            55,
+            0.05
+        );
+}
+
+
+.support-icon {
+
+    width:
+        42px;
+
+    height:
+        42px;
+
+    border-radius:
+        50%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    background:
+        #eef3ed;
+
+    color:
+        #527d59;
+
+    margin-right:
+        14px;
+
+    font-size:
+        18px;
+
+    position:
+        relative;
+
+    z-index:
+        2;
+
+    flex-shrink:
+        0;
+}
+
+
 .support-content {
-    position: relative;
-    z-index: 2;
+
+    position:
+        relative;
+
+    z-index:
+        2;
 }
 
 
-        .support-content h3 {
-            margin: 0 0 5px;
+.support-content h3 {
 
-            font-size: 13px;
+    margin:
+        0 0 5px;
 
-            color: #51443a;
-        }
+    font-size:
+        13px;
 
-
-        .support-content p {
-            margin: 0;
-
-            font-size: 11px;
-
-            color: #7c726a;
-        }
-
-
-        /* =====================================================
-           DECORATION
-        ===================================================== */
-
-    .farm-decoration {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-
-    height: 100%;
-    width: 55%;
-
-    display: flex;
-    justify-content: flex-end;
-    align-items: flex-end;
-
-    pointer-events: none;
-    z-index: 1;
-
-    overflow: hidden;
+    color:
+        #4d5851;
 }
+
+
+.support-content p {
+
+    margin:
+        0;
+
+    font-size:
+        11px;
+
+    color:
+        #8a9089;
+}
+
+
+/* =========================================================
+   FARM DECORATION
+========================================================= */
+
+.farm-decoration {
+
+    position:
+        absolute;
+
+    right:
+        0;
+
+    bottom:
+        0;
+
+    height:
+        100%;
+
+    width:
+        55%;
+
+    display:
+        flex;
+
+    justify-content:
+        flex-end;
+
+    align-items:
+        flex-end;
+
+    pointer-events:
+        none;
+
+    z-index:
+        1;
+
+    overflow:
+        hidden;
+}
+
 
 .farm-decoration img {
-    width: 100%;
-    height: auto;
 
-    max-height: 100%;
-    object-fit: contain;
-    object-position: right bottom;
+    width:
+        100%;
 
-    display: block;
+    height:
+        auto;
+
+    max-height:
+        100%;
+
+    object-fit:
+        contain;
+
+    object-position:
+        right bottom;
+
+    display:
+        block;
 }
 
-        /* =====================================================
-           RESPONSIVE
-        ===================================================== */
 
-        @media (max-width: 1100px) {
+/* =========================================================
+   RESPONSIVE
+========================================================= */
 
-            .summary-grid {
-                grid-template-columns: 1fr;
-            }
+@media screen and (max-width: 1300px) {
 
+    .summary-grid {
 
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
 
-        }
+    .dashboard-grid {
 
-
-        @media (max-width: 768px) {
-
-            .main-content {
-                padding: 20px 15px;
-            }
+        grid-template-columns:
+            1fr;
+    }
+}
 
 
-            .dashboard-header h1 {
-                font-size: 24px;
-            }
+@media screen and (max-width: 1100px) {
+
+    .main-content {
+
+        margin-left:
+            270px;
+
+        width:
+            calc(100% - 270px);
+    }
+}
 
 
-            .dashboard-header h1 span {
-                font-size: 22px;
-            }
+@media screen and (max-width: 900px) {
+
+    .main-content {
+
+        margin-left:
+            0;
+
+        width:
+            100%;
+
+        padding:
+            15px;
+    }
+
+    .customer-dashboard-wrapper {
+
+        border-radius:
+            18px;
+    }
+
+    .customer-account-details,
+    .customer-dropdown-icon {
+
+        display:
+            none;
+    }
+}
 
 
-            .summary-card {
-                padding: 17px;
-            }
+@media screen and (max-width: 600px) {
 
+    .customer-dashboard-content {
 
-            .stock-table-container {
-                overflow-x: auto;
-            }
+        padding:
+            18px;
+    }
 
+    .summary-grid {
 
-            .stock-table {
-                min-width: 550px;
-            }
+        grid-template-columns:
+            1fr;
+    }
 
+    .dashboard-header h1 {
 
-            .farm-decoration {
-                display: none;
-            }
+        font-size:
+            22px;
+    }
 
-        }
+    .customer-dashboard-topbar {
 
-    </style>
+        padding:
+            0 18px;
+    }
+}
+
+</style>
+
 
 </head>
 
@@ -1027,30 +2006,182 @@ body {
 <!-- =====================================================
      MAIN CONTENT
 ===================================================== -->
+
 <div class="main-content">
- 
+
 
     <div class="customer-dashboard-wrapper">
 
 
         <!-- =====================================================
-             DASHBOARD HEADER
+             CUSTOMER DASHBOARD TOPBAR
         ===================================================== -->
 
-        <div class="dashboard-header">
+     <div class="customer-dashboard-topbar">
 
-            <h1>
-                <?php echo $greeting; ?>,
-                <?php echo htmlspecialchars($first_name); ?>!
-                <span>👋</span>
-            </h1>
+    <div class="customer-page-title">
+        Customer Dashboard
+    </div>
 
-            <p>
-                Here's a quick overview of your account.
-            </p>
 
-        </div>
+    <div class="customer-topbar-right">
 
+
+        <!-- NOTIFICATION -->
+
+        <a
+            href="customer_notifications.php"
+            class="customer-top-notification"
+            title="Notifications"
+        >
+
+            <i class="fa-regular fa-bell"></i>
+
+        </a>
+
+
+        <!-- DIVIDER -->
+
+        <div class="customer-topbar-divider"></div>
+
+
+        <!-- CUSTOMER PROFILE -->
+
+        <a
+            href="customer_profile.php"
+            class="customer-top-profile"
+        >
+
+
+            <!-- AVATAR -->
+
+            <div class="customer-avatar">
+
+                <i class="fa-solid fa-user"></i>
+
+            </div>
+
+
+            <!-- CUSTOMER DETAILS -->
+
+            <div class="customer-account-details">
+
+                <span class="customer-top-name">
+                    Customer
+                </span>
+
+
+                <div class="customer-date-time">
+
+                    <span
+                        class="customer-date"
+                        id="customer-live-date"
+                    >
+                        <?php
+                        echo date('F j, Y');
+                        ?>
+                    </span>
+
+
+                    <span
+                        class="customer-time"
+                        id="customer-live-time"
+                    >
+                        <?php
+                        echo date('h:i:s A');
+                        ?>
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <!-- DROPDOWN -->
+
+            <div class="customer-dropdown-icon">
+
+                <i class="fa-solid fa-chevron-down"></i>
+
+            </div>
+
+
+        </a>
+
+    </div>
+
+</div>
+
+
+        <!-- =====================================================
+             DASHBOARD CONTENT
+        ===================================================== -->
+
+        <div class="customer-dashboard-content">
+
+
+            <!-- =====================================================
+                 DASHBOARD HEADER
+            ===================================================== -->
+
+            <div class="dashboard-header">
+
+
+                <div class="greeting-wrapper">
+
+
+                    <div class="greeting-icon">
+
+                        <i
+                            class="
+                            fa-solid
+                            fa-leaf
+                            "
+                        ></i>
+
+                    </div>
+
+
+                    <div class="greeting-text-container">
+
+
+                        <h1>
+
+                            <?php
+                            echo $greeting;
+                            ?>,
+
+                            <?php
+                            echo htmlspecialchars(
+                                $first_name
+                            );
+                            ?>!
+
+                            <span>👋</span>
+
+                        </h1>
+
+
+                        <p>
+
+                            Here's a quick overview
+                            of your account.
+
+                        </p>
+
+
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+
+ 
+
+ 
 
         <!-- =====================================================
              SUMMARY CARDS
@@ -1682,7 +2813,56 @@ body {
 
 
 </div>
+<script>
+function updateCustomerDateTime() {
 
+    var now = new Date();
+
+    var options = {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+    };
+
+    var dateText = now.toLocaleDateString(
+        'en-US',
+        options
+    );
+
+    var timeText = now.toLocaleTimeString(
+        'en-US',
+        {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        }
+    );
+
+    var dateElement = document.getElementById(
+        'customer-live-date'
+    );
+
+    var timeElement = document.getElementById(
+        'customer-live-time'
+    );
+
+    if (dateElement) {
+        dateElement.textContent = dateText;
+    }
+
+    if (timeElement) {
+        timeElement.textContent = timeText;
+    }
+}
+
+updateCustomerDateTime();
+
+setInterval(
+    updateCustomerDateTime,
+    1000
+);
+</script>
 
 </body>
 

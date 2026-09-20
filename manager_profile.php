@@ -485,6 +485,9 @@ mysqli_stmt_close(
         /* =============================================
            MAIN CONTENT
         ============================================= */
+/* =============================================
+   MAIN CONTENT
+============================================= */
 .main-content {
 
     margin-left:
@@ -494,7 +497,10 @@ mysqli_stmt_close(
         100vh;
 
     padding:
-        18px;
+        36px;
+
+    box-sizing:
+        border-box;
 
     background:
 
@@ -509,148 +515,457 @@ mysqli_stmt_close(
         );
 
 }
-
         /* =============================================
            OUTER CARD
         ============================================= */
 
-        .profile-outer-card {
+ .profile-outer-card {
 
-            width:
-                100%;
+    width:
+        100%;
 
-            box-sizing:
-                border-box;
+    box-sizing:
+        border-box;
 
-            padding:
-                22px;
+    padding:
+        0 0 28px;
 
-            background:
-                #ffffff;
+    background:
+        #ffffff;
 
-            border:
-                1px solid #dbe3ea;
+    border:
+        1px solid #dbe3ea;
 
-            border-radius:
-                16px;
+    border-radius:
+        16px;
 
-            box-shadow:
-                0 4px 16px rgba(
-                    15,
-                    23,
-                    42,
-                    0.05
-                );
+    box-shadow:
+        0 4px 16px rgba(
+            15,
+            23,
+            42,
+            0.05
+        );
 
-        }
+    overflow:
+        hidden;
 
+}
+/* =============================================
+   PROFILE PAGE HEADER
+============================================= */
+.profile-page-header {
 
-        /* =============================================
-           OUTER CARD HEADER
-        ============================================= */
+    display:
+        flex;
 
-        .outer-card-header {
+    align-items:
+        center;
 
-            display:
-                flex;
+    justify-content:
+        space-between;
 
-            align-items:
-                center;
+    height:
+        82px;
 
-            gap:
-                14px;
+    min-height:
+        82px;
 
-            padding:
-                2px 2px 20px;
+    padding:
+        0 28px;
 
-        }
+    background:
+        #f7f6f2;
 
+    border-bottom:
+        1px solid #dddcd6;
 
-        .profile-header-icon {
+    box-sizing:
+        border-box;
 
-            width:
-                46px;
-
-            height:
-                46px;
-
-            flex-shrink:
-                0;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            border-radius:
-                50%;
-
-            background:
-                #e6f4ea;
-
-            color:
-                #2f6b45;
-
-            font-size:
-                20px;
-
-        }
+}
 
 
-        .outer-card-header h1 {
+/* =============================================
+   HEADER LEFT
+============================================= */
 
-            margin:
-                0;
+.profile-header-left {
 
-            color:
-                #334155;
+    display:
+        flex;
 
-            font-size:
-                23px;
+    align-items:
+        center;
 
-            font-weight:
-                700;
+    min-width:
+        0;
 
-        }
+}
+.profile-header-left h1 {
+
+    margin:
+        0;
+
+    color:
+        #3f4b45;
+
+    font-size:
+        1.35rem;
+
+    font-weight:
+        700;
+
+    letter-spacing:
+        -0.3px;
+
+}
+
+/* =============================================
+   HEADER RIGHT
+============================================= */
+
+.profile-header-right {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        18px;
+
+    height:
+        100%;
+
+}
 
 
-        .outer-card-header p {
+/* =============================================
+   NOTIFICATION
+============================================= */
 
-            margin:
-                4px 0 0;
+.profile-notification-wrapper {
 
-            color:
-                #64748b;
+    position:
+        relative;
 
-            font-size:
-                12px;
+    display:
+        flex;
 
-        }
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+}
 
 
-        /* =============================================
-           LINE BEFORE PROFILE CARDS
-        ============================================= */
+.profile-notification-btn {
 
-        .outer-card-divider {
+    position:
+        relative;
 
-            width:
-                100%;
+    width:
+        42px;
 
-            height:
-                1px;
+    height:
+        42px;
 
-            margin:
-                0 0 20px;
+    display:
+        flex;
 
-            background:
-                #e2e8f0;
+    align-items:
+        center;
 
-        }
+    justify-content:
+        center;
+
+    border:
+        none;
+
+    background:
+        transparent;
+
+    color:
+        #55716f;
+
+    font-size:
+        21px;
+
+    cursor:
+        pointer;
+
+}
+
+
+.profile-notification-badge {
+
+    position:
+        absolute;
+
+    top:
+        1px;
+
+    right:
+        1px;
+
+    min-width:
+        18px;
+
+    height:
+        18px;
+
+    padding:
+        0 4px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    border-radius:
+        50%;
+
+    background:
+        #4f825c;
+
+    color:
+        #ffffff;
+
+    font-size:
+        10px;
+
+    font-weight:
+        700;
+
+    box-sizing:
+        border-box;
+
+}
+
+
+/* =============================================
+   HEADER DIVIDER
+============================================= */
+.profile-header-divider {
+
+    width:
+        1px;
+
+    height:
+        42px;
+
+    background:
+        #deded8;
+
+}
+
+
+/* =============================================
+   MANAGER ACCOUNT
+============================================= */
+.profile-manager-account {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        11px;
+
+    min-width:
+        230px;
+
+}
+.profile-manager-avatar {
+
+    width:
+        54px;
+
+    height:
+        54px;
+
+    min-width:
+        54px;
+
+    border-radius:
+        50%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    background:
+        #e8ebe7;
+
+    border:
+        1px solid #d9ddd8;
+
+    color:
+        #527d59;
+
+    font-size:
+        1.25rem;
+
+    box-shadow:
+        0 2px 6px
+        rgba(
+            0,
+            0,
+            0,
+            0.04
+        );
+
+}
+
+.profile-manager-info {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    justify-content:
+        center;
+
+    min-width:
+        120px;
+
+}
+
+
+.profile-manager-name {
+
+    margin:
+        0;
+
+    color:
+        #3f4b45;
+
+    font-size:
+        0.88rem;
+
+    font-weight:
+        700;
+
+    line-height:
+        1.2;
+
+}
+
+
+.profile-manager-role {
+
+    margin:
+        3px 0 0;
+
+    color:
+        #7b817f;
+
+    font-size:
+        12px;
+
+    line-height:
+        1.2;
+
+}
+
+
+.profile-manager-date {
+
+    margin:
+        5px 0 0;
+
+    color:
+        #8a9590;
+
+    font-size:
+        0.63rem;
+
+    line-height:
+        1.2;
+
+}
+
+
+.profile-manager-time {
+
+    margin:
+        0;
+
+    color:
+        #527d59;
+
+    font-size:
+        0.63rem;
+
+    font-weight:
+        600;
+
+    line-height:
+        1.2;
+
+}
+
+
+/* =============================================
+   DROPDOWN ARROW
+============================================= */
+
+.profile-dropdown-icon {
+
+    width:
+        28px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    color:
+        #65716b;
+
+    font-size:
+        0.7rem;
+
+    cursor:
+        pointer;
+
+}
+
+
+      /* =============================================
+   PROFILE CONTENT AREA
+============================================= */
+
+.profile-content-area {
+
+    padding:
+        20px;
+
+    box-sizing:
+        border-box;
+
+}
 
 
         /* =============================================
@@ -1463,30 +1778,122 @@ mysqli_stmt_close(
 
     <div class="profile-outer-card">
 
+<!-- =============================================
+     PROFILE PAGE HEADER
+============================================= -->
 
-        <!-- =============================================
-             OUTER CARD HEADER
-        ============================================= -->
-
-        <div class="outer-card-header">
+<div class="profile-page-header">
 
 
-            <div class="profile-header-icon">
+    <!-- HEADER LEFT -->
+
+    <div class="profile-header-left">
+
+        <h1>
+            Profile Management
+        </h1>
+
+    </div>
+
+
+    <!-- HEADER RIGHT -->
+
+    <div class="profile-header-right">
+
+
+        <!-- NOTIFICATION -->
+
+        <div class="profile-notification-wrapper">
+
+            <button
+                type="button"
+                class="profile-notification-btn"
+            >
+
+                <i class="fa-regular fa-bell"></i>
+
+                <?php if (isset($notification_count) && $notification_count > 0): ?>
+
+                    <span class="profile-notification-badge">
+
+                        <?php
+                        echo $notification_count > 9
+                            ? '9+'
+                            : $notification_count;
+                        ?>
+
+                    </span>
+
+                <?php endif; ?>
+
+            </button>
+
+        </div>
+
+
+        <!-- DIVIDER -->
+
+        <div class="profile-header-divider"></div>
+
+
+        <!-- MANAGER ACCOUNT -->
+
+        <div class="profile-manager-account">
+
+
+            <!-- AVATAR -->
+
+            <div class="profile-manager-avatar">
 
                 <i class="fa-solid fa-user"></i>
 
             </div>
 
 
-            <div>
+            <!-- MANAGER INFORMATION -->
 
-                <h1>
-                    Profile Management
-                </h1>
+      <div class="profile-manager-info">
 
-                <p>
-                    Manage your account information and security settings.
-                </p>
+
+    <div class="profile-manager-name">
+
+        Manager
+
+    </div>
+
+
+    <div
+        class="profile-manager-date"
+        id="profileHeaderDate"
+    >
+
+        <?php
+        echo date('F d, Y');
+        ?>
+
+    </div>
+
+
+    <div
+        class="profile-manager-time"
+        id="profileHeaderTime"
+    >
+
+        <?php
+        echo date('h:i:s A');
+        ?>
+
+    </div>
+
+
+</div>
+
+
+            <!-- ARROW -->
+
+            <div class="profile-dropdown-icon">
+
+                <i class="fa-solid fa-chevron-down"></i>
 
             </div>
 
@@ -1494,18 +1901,23 @@ mysqli_stmt_close(
         </div>
 
 
-        <!-- =============================================
-             LINE BEFORE PROFILE CARDS
-        ============================================= -->
+    </div>
 
-        <div class="outer-card-divider"></div>
+</div>
 
 
         <!-- =============================================
-             PROFILE GRID
+             PROFILE CONTENT
         ============================================= -->
 
-        <div class="profile-grid">
+        <div class="profile-content-area">
+
+
+            <!-- =============================================
+                 PROFILE GRID
+            ============================================= -->
+
+            <div class="profile-grid">
 
 
             <!-- =============================================
@@ -2011,7 +2423,7 @@ mysqli_stmt_close(
 
             </div>
 
-
+</div>
         </div>
 
 

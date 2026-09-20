@@ -339,7 +339,7 @@ while ($row = $reservation_result->fetch_assoc()) {
 $reservation_stmt->close();
 
 // Default avatar - no profile_photo column required
-$avatar_src = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150";
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -353,203 +353,1119 @@ $avatar_src = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <style>
-    /* =========================================================
-       MAIN RESERVATION CARD
-       ========================================================= */
 
-    .reservation-card {
-        overflow: hidden;
+/* =========================================================
+   CUSTOMER RESERVATION — CUSTOMER DASHBOARD MATCH
+   HEADER + PAGE SHELL ONLY
+========================================================= */
+
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+html,
+body {
+
+    margin:
+        0;
+
+    padding:
+        0;
+
+    width:
+        100%;
+
+    min-height:
+        100%;
+
+    background:
+        #f3f1eb;
+}
+.main-content {
+
+    margin-left:
+        312px;
+
+    min-height:
+        100vh;
+
+    padding:
+        18px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #eeece6 0%,
+            #f5f3ed 100%
+        );
+}
+
+
+/* =========================================================
+   RESERVATION OUTER CARD
+   SAME AS CUSTOMER DASHBOARD WRAPPER
+========================================================= */
+
+.reservation-card {
+
+    width:
+        100%;
+
+    background:
+        #ffffff;
+
+    border:
+        1px solid #dedbd2;
+
+    border-radius:
+        22px;
+
+    box-shadow:
+        0 12px 35px
+        rgba(
+            80,
+            72,
+            55,
+            0.10
+        );
+
+    overflow:
+        hidden;
+}
+
+
+/* =========================================================
+   REMOVE EXTRA TAILWIND OUTER SPACING
+========================================================= */
+
+.main-content > .flex-1 {
+    width: 100% !important;
+}
+
+.main-content > .flex-1 > .max-w-7xl {
+    width: 100% !important;
+    max-width: none !important;
+
+    margin: 0 !important;
+
+    padding:
+        0 !important;
+}
+
+
+/* =========================================================
+   CUSTOMER RESERVATION HEADER
+   EXACT CUSTOMER DASHBOARD HEADER SIZE
+========================================================= */
+
+.reservation-card > header {
+
+    min-height:
+        86px !important;
+
+    width:
+        100% !important;
+
+    padding:
+        0 28px !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        space-between !important;
+
+    background:
+        #f7f6f2 !important;
+
+    border-bottom:
+        1px solid #dddcd6 !important;
+
+    box-sizing:
+        border-box !important;
+}
+
+
+/* =========================================================
+   HEADER TITLE
+========================================================= */
+
+.reservation-card > header h1 {
+
+    margin:
+        0 !important;
+
+    padding:
+        0 !important;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif !important;
+
+    font-size:
+        1.35rem !important;
+
+    font-weight:
+        700 !important;
+
+    line-height:
+        1.2 !important;
+
+    color:
+        #3f4b45 !important;
+
+    letter-spacing:
+        -0.3px !important;
+}
+
+
+/* =========================================================
+   HEADER RIGHT SIDE
+========================================================= */
+
+.reservation-card > header > div {
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    gap:
+        18px !important;
+
+    height:
+        100% !important;
+}
+
+
+/* =========================================================
+   CUSTOMER ACCOUNT AREA
+
+   Customer Dashboard:
+   Avatar → Name → Date/Time → Dropdown
+
+   Reservation:
+   We keep the existing name position but
+   make its size/color match.
+========================================================= */
+
+.reservation-card > header .text-right {
+
+    display:
+        flex !important;
+
+    flex-direction:
+        column !important;
+
+    justify-content:
+        center !important;
+
+    min-width:
+        100px !important;
+
+    text-align:
+        left !important;
+}
+
+
+/* =========================================================
+   CUSTOMER NAME
+========================================================= */
+
+.reservation-card > header .text-right > div:first-child {
+
+    display:
+        block !important;
+
+    margin:
+        0 !important;
+
+    color:
+        #3f4b45 !important;
+
+    font-size:
+        0.88rem !important;
+
+    font-weight:
+        700 !important;
+
+    line-height:
+        1.2 !important;
+}
+
+
+/* =========================================================
+   CUSTOMER ROLE
+========================================================= */
+
+.reservation-card > header .text-right > div:last-child {
+
+    margin-top:
+        5px !important;
+
+    font-size:
+        0.63rem !important;
+
+    color:
+        #8a9590 !important;
+
+    line-height:
+        1.2 !important;
+}
+
+
+/* =========================================================
+   PROFILE AVATAR
+   EXACT CUSTOMER DASHBOARD SIZE
+========================================================= */
+
+.reservation-card > header .w-10.h-10 {
+
+    width:
+        54px !important;
+
+    height:
+        54px !important;
+
+    min-width:
+        54px !important;
+
+    border-radius:
+        50% !important;
+
+    overflow:
+        hidden !important;
+
+    background:
+        #e8ebe7 !important;
+
+    border:
+        1px solid #d9ddd8 !important;
+
+    box-shadow:
+        0 2px 6px
+        rgba(
+            0,
+            0,
+            0,
+            0.04
+        ) !important;
+}
+
+
+.reservation-card > header .w-10.h-10 img {
+
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    object-fit:
+        cover !important;
+
+    display:
+        block !important;
+}
+
+
+/* =========================================================
+   NOTIFICATION CONTAINER
+========================================================= */
+
+.reservation-card > header .relative {
+
+    position:
+        relative !important;
+}
+
+
+/* =========================================================
+   NOTIFICATION BELL
+========================================================= */
+
+.reservation-card > header .relative > div:first-child {
+
+    width:
+        40px !important;
+
+    height:
+        40px !important;
+
+    padding:
+        0 !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    border-radius:
+        50% !important;
+
+    color:
+        #65716b !important;
+
+    background:
+        transparent !important;
+}
+
+
+.reservation-card > header .relative > div:first-child:hover {
+
+    background:
+        transparent !important;
+
+    color:
+        #527d59 !important;
+}
+
+
+/* =========================================================
+   NOTIFICATION ICON
+========================================================= */
+
+.reservation-card > header .relative > div:first-child i {
+
+    color:
+        #65716b !important;
+
+    font-size:
+        1.2rem !important;
+}
+
+
+.reservation-card > header .relative > div:first-child:hover i {
+
+    color:
+        #527d59 !important;
+}
+
+
+/* =========================================================
+   NOTIFICATION BADGE
+   SAME SIZE/COLOR AS DASHBOARD
+========================================================= */
+
+#bell_badge {
+
+    top:
+        1px !important;
+
+    right:
+        0 !important;
+
+    width:
+        auto !important;
+
+    min-width:
+        17px !important;
+
+    height:
+        17px !important;
+
+    padding:
+        0 4px !important;
+
+    border-radius:
+        50% !important;
+
+    background:
+        #527d59 !important;
+
+    border:
+        2px solid #f7f6f2 !important;
+}
+
+
+/* =========================================================
+   NOTIFICATION DROPDOWN
+   CHANGE BLUE ACCENTS TO DASHBOARD GREEN
+========================================================= */
+
+#notification_dropdown {
+
+    width:
+        320px !important;
+
+    margin-top:
+        12px !important;
+
+    background:
+        #ffffff !important;
+
+    border:
+        1px solid #dedbd2 !important;
+
+    border-radius:
+        12px !important;
+
+    box-shadow:
+        0 12px 30px
+        rgba(
+            70,
+            65,
+            55,
+            0.12
+        ) !important;
+}
+
+
+/* =========================================================
+   NOTIFICATION HEADER
+========================================================= */
+
+#notification_dropdown > div:first-child {
+
+    background:
+        #f7f6f2 !important;
+
+    border-bottom:
+        1px solid #e9e6df !important;
+}
+
+
+#notification_dropdown > div:first-child span:first-child {
+
+    color:
+        #3f4b45 !important;
+}
+
+
+/* =========================================================
+   UNREAD COUNT
+========================================================= */
+
+#unread_count {
+
+    background:
+        #e9f1e6 !important;
+
+    color:
+        #527d59 !important;
+}
+
+
+/* =========================================================
+   NOTIFICATION ITEMS
+========================================================= */
+
+#notification_list > div {
+
+    transition:
+        background 0.2s ease;
+}
+
+
+#notification_list > div:hover {
+
+    background:
+        #fafaf7 !important;
+}
+
+
+/* =========================================================
+   NOTIFICATION ICON COLORS
+========================================================= */
+
+#notification_list .bg-blue-100 {
+
+    background:
+        #eef3ed !important;
+
+    color:
+        #527d59 !important;
+}
+
+
+/* =========================================================
+   RESERVATION BODY
+   SAME INNER SPACING FEEL AS DASHBOARD
+========================================================= */
+
+.reservation-card > .p-6 {
+
+    padding:
+        22px 28px 28px !important;
+}
+
+
+/* =========================================================
+   MY RESERVATIONS SECTION
+========================================================= */
+
+.reservation-card .mt-6 {
+
+    border:
+        1px solid #e2dfd7 !important;
+
+    border-radius:
+        10px !important;
+
+    background:
+        #ffffff !important;
+
+    box-shadow:
+        0 3px 10px
+        rgba(
+            70,
+            65,
+            55,
+            0.05
+        ) !important;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media screen and (max-width: 1100px) {
+
+    .main-content {
+
+        margin-left:
+            270px !important;
+
+        width:
+            calc(100% - 270px) !important;
+    }
+}
+
+
+@media screen and (max-width: 900px) {
+
+    .main-content {
+
+        margin-left:
+            0 !important;
+
+        width:
+            100% !important;
+
+        padding:
+            15px !important;
     }
 
-    /* =========================================================
-   MY RESERVATIONS & STATUS
-   Maximum of 3 reservation cards visible
-   ========================================================= */
+    .reservation-card {
 
-.reservation-list {
-    max-height: 390px;
-    overflow-y: auto;
-    overflow-x: hidden;
+        border-radius:
+            18px !important;
+    }
+
+    .reservation-card > header {
+
+        padding:
+            0 18px !important;
+    }
 }
 
-/* Custom scrollbar */
-.reservation-list::-webkit-scrollbar {
-    width: 6px;
-}
 
-.reservation-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-}
+@media screen and (max-width: 600px) {
 
-.reservation-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
-}
+    .reservation-card > .p-6 {
 
-.reservation-list::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
+        padding:
+            18px !important;
+    }
 
-/* Firefox */
-.reservation-list {
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f1f5f9;
+    .reservation-card > header h1 {
+
+        font-size:
+            1.15rem !important;
+    }
+
+    .reservation-card > header .text-right {
+
+        display:
+            none !important;
+    }
 }
 /* =========================================================
-   INDIVIDUAL STEP CARDS
-   ========================================================= */
+   CUSTOMER RESERVATION HEADER
+   SAME AS CUSTOMER DASHBOARD
+========================================================= */
+
+.customer-dashboard-topbar {
+
+    min-height:
+        86px;
+
+    width:
+        100%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    padding:
+        0 28px;
+
+    background:
+        #f7f6f2;
+
+    border-bottom:
+        1px solid #dddcd6;
+
+    box-sizing:
+        border-box;
+}
+
+
+/* =========================================================
+   HEADER TITLE
+========================================================= */
+
+.customer-dashboard-page-title {
+
+    margin:
+        0;
+
+    font-size:
+        1.35rem;
+
+    font-weight:
+        700;
+
+    color:
+        #3f4b45;
+
+    letter-spacing:
+        -0.3px;
+}
+
+
+/* =========================================================
+   HEADER RIGHT
+========================================================= */
+
+.customer-dashboard-topbar-right {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        18px;
+
+    height:
+        100%;
+}
+
+
+/* =========================================================
+   NOTIFICATION CONTAINER
+========================================================= */
+
+.customer-notification-container {
+
+    position:
+        relative;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+}
+
+
+/* =========================================================
+   NOTIFICATION
+========================================================= */
+
+.customer-top-notification {
+
+    position:
+        relative;
+
+    width:
+        40px;
+
+    height:
+        40px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    text-decoration:
+        none;
+
+    background:
+        transparent;
+
+    border:
+        none;
+
+    padding:
+        0;
+
+    cursor:
+        pointer;
+
+    color:
+        #65716b;
+
+    font-size:
+        1.2rem;
+
+    transition:
+        0.2s ease;
+}
+
+
+.customer-top-notification:hover {
+
+    color:
+        #527d59;
+}
+
+
+/* =========================================================
+   NOTIFICATION BADGE
+========================================================= */
+
+.customer-notification-badge {
+
+    position:
+        absolute;
+
+    top:
+        1px;
+
+    right:
+        0;
+
+    min-width:
+        17px;
+
+    height:
+        17px;
+
+    padding:
+        0 4px;
+
+    border-radius:
+        50%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    background:
+        #527d59;
+
+    color:
+        #ffffff;
+
+    font-size:
+        0.58rem;
+
+    font-weight:
+        700;
+
+    border:
+        2px solid #f7f6f2;
+}
+
+
+/* =========================================================
+   HEADER DIVIDER
+========================================================= */
+
+.customer-topbar-divider {
+
+    width:
+        1px;
+
+    height:
+        42px;
+
+    background:
+        #deded8;
+}
+
+
+/* =========================================================
+   CUSTOMER PROFILE
+========================================================= */
+
+.customer-top-profile {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        11px;
+
+    min-width:
+        190px;
+
+    text-decoration:
+        none;
+
+    color:
+        #3f4b45;
+}
+
+
+/* =========================================================
+   CUSTOMER AVATAR
+========================================================= */
+
+.customer-avatar {
+
+    width:
+        54px;
+
+    height:
+        54px;
+
+    min-width:
+        54px;
+
+    border-radius:
+        50%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    background:
+        #e8ebe7;
+
+    border:
+        1px solid #d9ddd8;
+
+    color:
+        #527d59;
+
+    font-size:
+        1.25rem;
+
+    box-shadow:
+        0 2px 6px
+        rgba(
+            0,
+            0,
+            0,
+            0.04
+        );
+}
+
+
+/* =========================================================
+   CUSTOMER ACCOUNT DETAILS
+========================================================= */
+
+.customer-account-details {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    justify-content:
+        center;
+
+    min-width:
+        100px;
+}
+
+
+/* =========================================================
+   CUSTOMER NAME
+========================================================= */
+
+.customer-top-name {
+
+    display:
+        block;
+
+    margin:
+        0;
+
+    color:
+        #3f4b45;
+
+    font-size:
+        0.88rem;
+
+    font-weight:
+        700;
+
+    line-height:
+        1.2;
+}
+
+
+/* =========================================================
+   CUSTOMER ROLE
+========================================================= */
+
+.customer-role {
+
+    display:
+        block;
+
+    margin-top:
+        5px;
+
+    color:
+        #8a9590;
+
+    font-size:
+        0.63rem;
+
+    line-height:
+        1.2;
+
+    white-space:
+        nowrap;
+}
+
+
+/* =========================================================
+   DATE AND TIME
+========================================================= */
+
+.customer-date-time {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        flex-start;
+
+    gap:
+        2px;
+
+    margin-top:
+        5px;
+
+    white-space:
+        nowrap;
+}
+
+
+.customer-date {
+
+    font-size:
+        0.63rem;
+
+    color:
+        #8a9590;
+}
+
+
+.customer-time {
+
+    font-size:
+        0.63rem;
+
+    color:
+        #527d59;
+
+    font-weight:
+        600;
+
+    line-height:
+        1.2;
+}
+
+
+/* =========================================================
+   DROPDOWN ICON
+========================================================= */
+
+.customer-dropdown-icon {
+
+    width:
+        28px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    color:
+        #65716b;
+
+    font-size:
+        0.7rem;
+}
+/* =========================================================
+   RESERVATION STEP CARDS
+========================================================= */
 
 .step-column {
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-self: start;
 }
 
-.step-column .step-card {
+.step-card {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 20px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-
-    display: flex;
-    flex-direction: column;
-
-    min-height: 0;
-    overflow: hidden;
-
+    border: 1px solid #dedbd2;
+    border-radius: 16px;
+    padding: 22px;
+    height: 100%;
     box-sizing: border-box;
+    box-shadow: 0 4px 14px rgba(80, 72, 55, 0.06);
 }
-
-
-/* =========================================================
-   STEP 1
-   NATURAL HEIGHT = REFERENCE HEIGHT
-   ========================================================= */
 
 .step-1-card {
-    height: auto;
-    flex: none;
+    background: #ffffff;
 }
-
-
-/* =========================================================
-   STEP 2 & STEP 3 CONTENT
-   ========================================================= */
 
 .step-scroll {
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-right: 6px;
-
-    flex: 1 1 auto;
-}
-
-
-/* =========================================================
-   CUSTOM SCROLLBAR
-   ========================================================= */
-
-.step-scroll::-webkit-scrollbar {
-    width: 6px;
-}
-
-.step-scroll::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-}
-
-.step-scroll::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
-}
-
-.step-scroll::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
-
-/* Firefox */
-.step-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f1f5f9;
-}
-
-
-/* =========================================================
-   DESKTOP
-   ========================================================= */
-
-@media (min-width: 1024px) {
-
-    /*
-       IMPORTANT:
-       Do NOT allow the grid to stretch Step 1
-       based on the tallest Step 2/Step 3.
-    */
-    .reservation-card > .reservation-grid {
-        align-items: start;
-    }
-
-    .step-column {
-        display: flex;
-        flex-direction: column;
-        align-self: start;
-    }
-
-    /*
-       IMPORTANT:
-       Remove flex: 1 from the cards.
-       JavaScript will give Step 2 and Step 3
-       the exact height of Step 1.
-    */
-    .step-column .step-card {
-        flex: none;
-        min-height: 0;
-    }
-
-    /*
-       Step 2 and Step 3 scroll areas occupy
-       the remaining height inside their cards.
-    */
-    .step-column:not(:first-child) .step-card {
-        overflow: hidden;
-    }
-}
-
-
-/* =========================================================
-   MOBILE / TABLET
-   ========================================================= */
-
-@media (max-width: 1023px) {
-
-    .reservation-card {
-        padding: 16px;
-    }
-
-    .step-column {
-        align-self: stretch;
-    }
-
-    .step-column .step-card {
-        height: auto !important;
-        flex: none !important;
-    }
-
-    .step-scroll {
-        flex: none;
-        height: auto !important;
-        max-height: none !important;
-        overflow-y: visible;
-        padding-right: 0;
-    }
 }
 </style>
-<body class="bg-slate-100 font-sans text-gray-700 antialiased min-h-screen">
+<body class="font-sans text-gray-700 antialiased min-h-screen">
 
 <?php include('customer_panel.php'); ?>
 
@@ -560,7 +1476,7 @@ $avatar_src = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto
         <div class="flex-1 flex flex-col min-w-0">
            
 
-           <div class="max-w-7xl w-full mx-auto p-6">
+     <div class="w-full mx-auto">
     <form id="reservation_form" action="" method="POST" onsubmit="return validateForm()" autocomplete="off">
 
         <div class="reservation-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -568,135 +1484,212 @@ $avatar_src = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto
             <!-- =====================================================
                  RESERVATION HEADER
                  ===================================================== -->
-            <header class="px-8 py-5 border-b border-gray-200 flex justify-between items-center relative">
+ <!-- =====================================================
+     CUSTOMER RESERVATION TOPBAR
+===================================================== -->
 
-                <!-- LEFT: PAGE TITLE -->
-                <h1 class="text-2xl font-bold text-slate-800">
-                    📝 Customer Reservation
-                </h1>
+<div class="customer-dashboard-topbar">
 
-                <!-- RIGHT: CUSTOMER ACCOUNT + NOTIFICATION -->
-                <div class="flex items-center space-x-4">
+    <!-- PAGE TITLE -->
+    <h1 class="customer-dashboard-page-title">
+        📝 Customer Reservation
+    </h1>
 
-                    <div class="text-right">
-                        <div class="font-semibold text-sm text-gray-800">
-                            <?= !empty($customer_name) ? htmlspecialchars($customer_name) : 'Guest'; ?>
-                        </div>
 
-                        <div class="text-xs text-gray-400">
-                            (Customer Access)
-                        </div>
-                    </div>
+    <!-- HEADER RIGHT -->
+    <div class="customer-dashboard-topbar-right">
 
-                    <!-- Profile Photo -->
-                    <div class="w-10 h-10 rounded-full bg-purple-200 overflow-hidden border border-gray-300">
-                        <img
-                            src="<?= $avatar_src ?>"
-                            alt="Profile"
-                            class="w-full h-full object-cover"
-                        >
-                    </div>
 
-                    <!-- Notification Bell -->
-                    <div class="relative">
+        <!-- NOTIFICATION -->
+        <div class="customer-notification-container">
 
-                        <div
-                            onclick="toggleNotifications(event)"
-                            class="cursor-pointer relative p-1 hover:bg-gray-100 rounded-full transition"
-                        >
-                            <i class="fa-regular fa-bell text-gray-500 text-xl"></i>
+            <button
+                type="button"
+                class="customer-top-notification"
+                onclick="toggleNotifications(event)"
+                title="Notifications"
+            >
 
-                            <span
-                                id="bell_badge"
-                                class="absolute top-1 right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white <?= $unread_count > 0 ? '' : 'hidden'; ?>"
-                            ></span>
-                        </div>
+                <i class="fa-regular fa-bell"></i>
 
-                        <!-- Notification Dropdown -->
-                        <div
-                            id="notification_dropdown"
-                            class="hidden absolute right-0 mt-3 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
-                        >
+                <?php if ($unread_count > 0) { ?>
 
-                            <div class="px-4 py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                                <span class="font-bold text-sm text-slate-800">
-                                    Notifications
-                                </span>
+                    <span class="customer-notification-badge">
+                        <?php echo $unread_count; ?>
+                    </span>
 
-                                <span
-                                    id="unread_count"
-                                    class="text-xs <?= $unread_count > 0 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'; ?> px-2 py-0.5 rounded-full font-medium"
-                                >
-                                    <?= $unread_count > 0 ? $unread_count . ' New' : '0 New'; ?>
-                                </span>
-                            </div>
+                <?php } ?>
 
-                            <div
-                                id="notification_list"
-                                class="divide-y divide-gray-100 max-h-60 overflow-y-auto"
-                            >
+            </button>
 
-                                <?php if (!empty($notifications)): ?>
 
-                                    <?php foreach ($notifications as $notif):
+            <!-- KEEP YOUR EXISTING NOTIFICATION DROPDOWN -->
+            <div
+                id="notification_dropdown"
+                class="notification-dropdown-custom hidden"
+            >
 
-                                        $bg_class = !$notif['is_read'] ? 'bg-blue-50/30' : '';
+                <div class="notification-dropdown-header-custom">
 
-                                        $icon_bg = 'bg-blue-100 text-blue-600';
-                                        $icon_fa = 'fa-solid fa-circle-info';
+                    <strong>
+                        Notifications
+                    </strong>
 
-                                        if ($notif['type'] === 'success') {
-                                            $icon_bg = 'bg-green-100 text-green-600';
-                                            $icon_fa = 'fa-solid fa-circle-check';
-                                        } elseif ($notif['type'] === 'alert') {
-                                            $icon_bg = 'bg-red-100 text-red-600';
-                                            $icon_fa = 'fa-solid fa-triangle-exclamation';
-                                        }
-                                    ?>
+                    <?php if ($unread_count > 0) { ?>
 
-                                        <div class="p-4 hover:bg-slate-50 transition flex space-x-3 <?= $bg_class; ?>">
+                        <span>
+                            <?php echo $unread_count; ?> unread
+                        </span>
 
-                                            <div class="<?= $icon_bg; ?> rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                <i class="<?= $icon_fa; ?> text-xs"></i>
-                                            </div>
-
-                                            <div class="flex-1 min-w-0">
-
-                                                <p class="text-xs text-gray-700 font-semibold mb-0.5 truncate">
-                                                    <?= htmlspecialchars($notif['title']); ?>
-                                                </p>
-
-                                                <p class="text-[11px] text-gray-500 break-words mb-1">
-                                                    <?= htmlspecialchars($notif['description']); ?>
-                                                </p>
-
-                                                <p class="text-[9px] text-gray-400">
-                                                    <?= date('M d, g:i a', strtotime($notif['created_at'])); ?>
-                                                </p>
-
-                                            </div>
-                                        </div>
-
-                                    <?php endforeach; ?>
-
-                                <?php else: ?>
-
-                                    <div
-                                        id="empty_notification_placeholder"
-                                        class="p-8 text-center text-gray-400 text-xs"
-                                    >
-                                        <i class="fa-regular fa-bell-slash text-2xl mb-2 block text-gray-300"></i>
-                                        No new notifications
-                                    </div>
-
-                                <?php endif; ?>
-
-                            </div>
-                        </div>
-                    </div>
+                    <?php } ?>
 
                 </div>
-            </header>
+
+
+                <div class="notification-list-custom">
+
+                    <?php if (count($notifications) > 0) { ?>
+
+                        <?php foreach ($notifications as $notification) { ?>
+
+                            <div class="notification-item-custom">
+
+                                <div class="notification-item-icon-custom">
+
+                                    <i class="fa-regular fa-bell"></i>
+
+                                </div>
+
+
+                                <div class="notification-item-content-custom">
+
+                                    <strong>
+                                        <?php
+                                        echo htmlspecialchars(
+                                            $notification['title']
+                                        );
+                                        ?>
+                                    </strong>
+
+                                    <span>
+                                        <?php
+                                        echo htmlspecialchars(
+                                            $notification['message']
+                                        );
+                                        ?>
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+                        <?php } ?>
+
+                    <?php } else { ?>
+
+                        <div class="notification-empty-custom">
+
+                            <i class="fa-regular fa-circle-check"></i>
+
+                            <strong>
+                                No new notifications
+                            </strong>
+
+                            <span>
+                                You're all caught up.
+                            </span>
+
+                        </div>
+
+                    <?php } ?>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- DIVIDER -->
+        <div class="customer-topbar-divider"></div>
+
+
+        <!-- CUSTOMER PROFILE -->
+        <a
+            href="customer_profile.php"
+            class="customer-top-profile"
+        >
+
+            <!-- AVATAR -->
+            <div class="customer-avatar">
+
+                <i class="fa-regular fa-user"></i>
+
+            </div>
+
+
+            <!-- ACCOUNT DETAILS -->
+            <div class="customer-account-details">
+
+                <span class="customer-top-name">
+
+                    <?php
+
+                    $reservation_name_parts =
+                        explode(
+                            " ",
+                            trim($customer_name)
+                        );
+
+                    echo htmlspecialchars(
+                        $reservation_name_parts[0]
+                    );
+
+                    ?>
+
+                </span>
+
+
+              
+
+
+                <div class="customer-date-time">
+
+                  <span class="customer-date">
+
+    <?php
+    echo date("F d, Y");
+    ?>
+
+</span>
+
+<span
+    class="customer-time"
+    id="live-time"
+>
+    <?php
+    echo date("g:i A");
+    ?>
+</span>
+
+                </div>
+
+            </div>
+
+
+            <!-- DROPDOWN ICON -->
+            <div class="customer-dropdown-icon">
+
+                <i class="fa-solid fa-chevron-down"></i>
+
+            </div>
+
+        </a>
+
+    </div>
+
+</div>
+
 
 
             <!-- =====================================================
@@ -1375,6 +2368,54 @@ $avatar_src = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto
 </div>
 
     <script>
+  
+/* =========================================================
+   CUSTOMER HEADER LIVE TIME
+========================================================= */
+
+function updateCustomerLiveTime() {
+
+    var timeElement =
+        document.getElementById('customer_live_time');
+
+    if (!timeElement) {
+        return;
+    }
+
+    var now = new Date();
+
+    var hours = now.getHours();
+    var minutes = now.getMinutes();
+    var seconds = now.getSeconds();
+
+    var ampm = hours >= 12 ? 'PM' : 'AM';
+
+    hours = hours % 12;
+
+    hours = hours
+        ? hours
+        : 12;
+
+    hours = String(hours).padStart(2, '0');
+    minutes = String(minutes).padStart(2, '0');
+    seconds = String(seconds).padStart(2, '0');
+
+    timeElement.innerText =
+        hours + ':' +
+        minutes + ':' +
+        seconds + ' ' +
+        ampm;
+}
+
+
+updateCustomerLiveTime();
+
+setInterval(
+    updateCustomerLiveTime,
+    1000
+);
+
+
         function openLogoutModal() {
     document.getElementById('logout_modal').classList.remove('hidden');
 }
@@ -1895,6 +2936,50 @@ function copyReservationCode() {
         alert('Reservation ID copied: ' + reservationCode);
     }
 }
+
+
+function updateLiveTime() {
+
+    var now = new Date();
+
+    var hours = now.getHours();
+    var minutes = now.getMinutes();
+    var seconds = now.getSeconds();
+
+    var ampm = hours >= 12 ? "PM" : "AM";
+
+    hours = hours % 12;
+
+    if (hours === 0) {
+        hours = 12;
+    }
+
+    hours = hours < 10 ? "0" + hours : hours;
+    minutes = minutes < 10 ? "0" + minutes : minutes;
+    seconds = seconds < 10 ? "0" + seconds : seconds;
+
+    var timeString =
+        hours + ":" +
+        minutes + ":" +
+        seconds + " " +
+        ampm;
+
+    var liveTime =
+        document.getElementById("live-time");
+
+    if (liveTime) {
+        liveTime.innerHTML = timeString;
+    }
+}
+
+updateLiveTime();
+
+setInterval(
+    updateLiveTime,
+    1000
+);
+
+
     </script>
 </body>
 </html>

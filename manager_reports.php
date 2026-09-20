@@ -1540,12 +1540,13 @@ body {
     min-height: 100vh;
 }
 .page-wrapper {
-
     width: 100%;
-
-    padding:
-        22px 28px 28px;
-
+    background: #ffffff;
+    padding: 22px 28px 28px;
+    border: 1px solid #e3e8e5;
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 2px 8px rgba(31, 45, 39, 0.05);
 }
 /* =========================================================
    MAIN CONTENT
@@ -1577,415 +1578,647 @@ body {
 | REPORTS OUTER CARD
 |--------------------------------------------------------------------------
 */
-
 .reports-outer-card {
     width: 100%;
-    background: #ffffff;
-    border: 1px solid #e3e8e5;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(31, 45, 39, 0.05);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
     overflow: visible;
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| REPORTS TOP HEADER
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   REPORTS TOP HEADER
+   SAME AS RESERVATION HEADER
+   ============================================================ */
 
 .reports-top-header {
-    min-height: 110px;
-    padding: 20px 28px;
+    width: 100%;
+    min-height: 86px;
+    padding: 0 28px;
+
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #ffffff;
-    border-bottom: 1px solid #e4e8e6;
-    border-radius: 12px 12px 0 0;
+
+    background: #f7f6f2;
+
+    border: 1px solid #dddcd6;
+    border-radius: 28px 28px 0 0;
+
+    box-sizing: border-box;
+
+    position: relative;
+    z-index: 30;
 }
 
+
+/* ============================================================
+   TITLE
+   ============================================================ */
+
+.reports-heading {
+    display: flex;
+    align-items: center;
+
+    margin: 0;
+}
 
 .reports-heading h1 {
     margin: 0;
-    color: #122c4a;
-    font-size: 30px;
-    font-weight: 700;
-    line-height: 1.2;
+
+   font-size: 1.35rem;
+line-height: 1;
+font-weight: 700;
+
+    color: #294d5b;
+
+    letter-spacing: -0.7px;
 }
 
 
-.reports-heading p {
-    margin: 10px 0 0 0;
-    color: #718096;
-    font-size: 16px;
-    line-height: 1.4;
-}
-.reports-title-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.reports-title-icon {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #3c7857;
-}
-
-.reports-title-icon svg {
-    width: 27px;
-    height: 27px;
-}
+/* ============================================================
+   RIGHT SIDE
+   ============================================================ */
 
 .reports-header-right {
     display: flex;
+
     align-items: center;
+
+    height: 100%;
+
     gap: 18px;
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| NOTIFICATION
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   NOTIFICATION
+   ============================================================ */
 
 .notification-container {
     position: relative;
-}
 
+    display: flex;
+    align-items: center;
+}
 
 .notification-button {
     position: relative;
-    width: 52px;
-    height: 52px;
-    border: 1px solid #e1e6e4;
-    border-radius: 50%;
-    background: #ffffff;
-    color: #e89d25;
-    cursor: pointer;
+
+    width: 40px;
+    height: 40px;
+
+    padding: 0;
+
+    border: 0;
+
+    background: transparent;
+
+    color: #53716f;
+
     display: flex;
     align-items: center;
     justify-content: center;
-    outline: none;
+
+    cursor: pointer;
 }
-
-
-.notification-button:hover {
-    background: #fafcfb;
-    border-color: #d6ddda;
-}
-
 
 .notification-icon {
     display: flex;
+
     align-items: center;
     justify-content: center;
 }
 
+.notification-icon svg {
+    width: 25px;
+    height: 25px;
+}
+
+
+/* ============================================================
+   NOTIFICATION NUMBER
+   ============================================================ */
 
 .notification-count {
     position: absolute;
-    top: -3px;
-    right: -3px;
-    min-width: 19px;
-    height: 19px;
-    padding: 0 5px;
+
+   top: 1px;
+right: 0;
+
+min-width: 17px;
+height: 17px;
+
+font-size: 0.58rem;
+    padding: 0 4px;
+
     border-radius: 50%;
-    background: #d9534f;
+
+    background: #4f8565;
+
     color: #ffffff;
-    font-size: 10px;
-    font-weight: 700;
+
+    border: 0;
+
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #ffffff;
-}
 
+
+    line-height: 17px;
+
+    font-weight: 700;
+
+    box-sizing: border-box;
+}
+/* =========================================================
+   NOTIFICATION DROPDOWN
+   SAME STYLE AS RESERVATION HEADER
+   ========================================================= */
 
 .notification-dropdown {
     display: none;
-    position: absolute;
-    top: 62px;
-    right: 0;
-    width: 330px;
-    background: #ffffff;
-    border: 1px solid #e1e6e4;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(30, 45, 38, 0.12);
-    z-index: 1000;
-    overflow: hidden;
-}
 
+    position: absolute;
+
+    top: calc(100% + 12px);
+
+    right: -8px;
+
+    width: 320px;
+
+    background: #ffffff;
+
+    border: 1px solid #dddcd6;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 12px 30px rgba(39, 49, 42, 0.12);
+
+    overflow: hidden;
+
+    z-index: 1000;
+}
 
 .notification-dropdown.show {
     display: block;
 }
 
 
-.notification-dropdown-header {
-    min-height: 48px;
-    padding: 0 15px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid #edf0ef;
-}
+/* =========================================================
+   NOTIFICATION DROPDOWN HEADER
+   ========================================================= */
 
+.notification-dropdown-header {
+    padding: 14px 16px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    border-bottom: 1px solid #ecebe6;
+
+    background: #f7f6f2;
+}
 
 .notification-dropdown-header strong {
     font-size: 13px;
-    color: #34413b;
-}
 
+    font-weight: 700;
+
+    color: #294d5b;
+}
 
 .notification-dropdown-header span {
-    font-size: 10px;
-    color: #8a9390;
+    font-size: 11px;
+
+    color: #7c8586;
 }
 
 
+/* =========================================================
+   NOTIFICATION LIST
+   ========================================================= */
+
 .notification-list {
-    max-height: 330px;
+    max-height: 320px;
+
     overflow-y: auto;
 }
 
 
+/* =========================================================
+   NOTIFICATION ITEM
+   ========================================================= */
+
 .notification-item {
     display: flex;
-    gap: 10px;
-    padding: 12px 15px;
-    border-bottom: 1px solid #f0f2f1;
+
+    align-items: flex-start;
+
+    gap: 11px;
+
+    padding: 13px 15px;
+
+    border-bottom: 1px solid #f0f1ee;
+
+    background: #ffffff;
 }
 
+.notification-item:last-child {
+    border-bottom: 0;
+}
 
 .notification-item:hover {
-    background: #fafcfb;
+    background: #f8faf8;
 }
 
 
+/* =========================================================
+   NOTIFICATION ITEM ICON
+   ========================================================= */
+
 .notification-item-icon {
-    width: 31px;
-    height: 31px;
-    min-width: 31px;
+    width: 30px;
+    height: 30px;
+
+    min-width: 30px;
+
     border-radius: 50%;
-    background: #edf8f1;
-    color: #398054;
+
+    background: #eef5ef;
+
+    color: #4f8565;
+
     display: flex;
+
     align-items: center;
     justify-content: center;
 }
 
+.notification-item-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+
+/* =========================================================
+   NOTIFICATION ITEM CONTENT
+   ========================================================= */
 
 .notification-item-content {
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
 
+    display: flex;
+
+    flex-direction: column;
+}
 
 .notification-item-content strong {
     font-size: 11px;
-    color: #35403b;
-}
 
+    line-height: 1.3;
+
+    font-weight: 700;
+
+    color: #294d5b;
+}
 
 .notification-item-content span {
-    font-size: 10px;
-    color: #59635f;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
+    margin-top: 3px;
 
+    font-size: 11px;
+
+    line-height: 1.3;
+
+    color: #4f5955;
+}
 
 .notification-item-content small {
-    font-size: 8.5px;
-    color: #929a97;
+    margin-top: 3px;
+
+    font-size: 9px;
+
+    line-height: 1.3;
+
+    color: #858d8a;
 }
 
+
+/* =========================================================
+   EMPTY NOTIFICATION
+   ========================================================= */
 
 .notification-empty {
     min-height: 130px;
-    padding: 20px;
+
+    padding: 25px 18px;
+
     display: flex;
+
     flex-direction: column;
+
     align-items: center;
+
     justify-content: center;
+
     text-align: center;
-    color: #9aa29f;
+
+    color: #8c9491;
 }
 
-
 .notification-empty svg {
-    color: #68a27d;
     margin-bottom: 8px;
 }
 
-
 .notification-empty strong {
     font-size: 11px;
-    color: #69736f;
-}
 
+    font-weight: 700;
+
+    color: #68716e;
+}
 
 .notification-empty span {
     margin-top: 4px;
-    font-size: 9px;
-    color: #9aa29f;
+
+    font-size: 10px;
+
+    color: #8c9491;
+}
+
+/* ============================================================
+   VERTICAL DIVIDER
+   ============================================================ */
+
+.reports-header-divider {
+    width: 1px;
+
+    height: 42px;
+
+    background: #dddcd6;
+
+    flex-shrink: 0;
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| MANAGER ACCOUNT
-|--------------------------------------------------------------------------
-*/
+/* ============================================================
+   MANAGER ACCOUNT
+   ============================================================ */
 
 .manager-account-container {
     position: relative;
+
     display: flex;
+
     align-items: center;
+
     gap: 11px;
+    min-width: 230px;
 }
 
+
+/* ============================================================
+   CIRCULAR USER ICON
+   ============================================================ */
 
 .manager-avatar {
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
+   width: 54px;
+height: 54px;
+min-width: 54px;
     border-radius: 50%;
-    background: #e8f4ec;
-    color: #328054;
+
+    background: #eef2ed;
+
+    border: 1px solid #dce1dc;
+
     display: flex;
+
     align-items: center;
     justify-content: center;
-    font-size: 16px;
-    font-weight: 700;
+
+    box-shadow:
+        0 2px 5px rgba(40, 65, 48, 0.04);
+
+    box-sizing: border-box;
 }
 
+.manager-avatar svg {
+    width: 25px;
+    height: 25px;
+}
+
+
+/* ============================================================
+   MANAGER INFORMATION
+   ============================================================ */
 
 .manager-account-info {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.2;
-}
+    min-width: 120px;
 
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+}
 
 .manager-account-info strong {
-    color: #182f49;
-    font-size: 15px;
-    font-weight: 700;
-}
+    margin: 0;
 
+   font-size: 0.88rem;
+line-height: 1.2;
+font-weight: 700;
+    color: #243f4d;
+}
 
 .manager-account-info span {
+    display: block;
+
+    line-height: 1.25;
+}
+
+.manager-account-info .manager-date {
+    margin-top: 5px;
+
+    font-size:0.63rem;
+
+    color: #7c8586;
+}
+
+.manager-account-info .manager-time {
     margin-top: 2px;
-    color: #6f7d8d;
-    font-size: 12px;
+
+   font-size: 0.63rem;
+font-weight: 600;
+
+    color: #2f6d4c;
 }
 
 
-.manager-account-info b {
-    margin-top: 3px;
-    color: #178348;
-    font-size: 12px;
-    font-weight: 700;
-}
-
+/* ============================================================
+   ACCOUNT ARROW
+   ============================================================ */
 
 .manager-account-arrow {
-    width: 30px;
-    height: 30px;
+  width: 28px;
+
+font-size: 0.7rem;
+    padding: 0;
+
+    margin-left: 2px;
+
     border: 0;
+
     background: transparent;
-    color: #244a68;
+
+    color: #55716d;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
     cursor: pointer;
-    font-size: 16px;
-    outline: none;
+
+
+    font-weight: 400;
 }
 
+.manager-account-arrow span {
+    display: block;
+
+    transform: translateY(-2px);
+}
+
+
+/* ============================================================
+   MANAGER DROPDOWN
+   ============================================================ */
 
 .manager-account-dropdown {
     display: none;
-    position: absolute;
-    top: 58px;
-    right: 0;
-    width: 210px;
-    background: #ffffff;
-    border: 1px solid #e1e6e4;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(30, 45, 38, 0.12);
-    z-index: 1000;
-    overflow: hidden;
-}
 
+    position: absolute;
+
+    top: calc(100% + 12px);
+
+    right: 0;
+
+    width: 220px;
+
+    padding: 10px 0;
+
+    background: #ffffff;
+
+    border: 1px solid #dddcd6;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 12px 30px rgba(39, 49, 42, 0.12);
+
+    z-index: 100;
+}
 
 .manager-account-dropdown.show {
     display: block;
 }
 
 
+/* ============================================================
+   DROPDOWN HEADER
+   ============================================================ */
+
 .manager-dropdown-header {
-    padding: 12px;
     display: flex;
+
     align-items: center;
-    gap: 9px;
+
+    gap: 10px;
+
+    padding: 10px 14px;
 }
 
-
 .dropdown-avatar {
-    width: 34px;
-    height: 34px;
+    width: 38px;
+    height: 38px;
+
+    min-width: 38px;
+
     border-radius: 50%;
-    background: #e8f4ec;
-    color: #328054;
+
+    background: #eef2ed;
+
+    border: 1px solid #dce1dc;
+
     display: flex;
+
     align-items: center;
     justify-content: center;
+}
+
+.manager-dropdown-header > div:last-child {
+    display: flex;
+
+    flex-direction: column;
+}
+
+.manager-dropdown-header strong {
     font-size: 11px;
+
+    color: #294d5b;
+
     font-weight: 700;
 }
 
-
-.manager-dropdown-header strong {
-    display: block;
-    font-size: 11px;
-    color: #35403b;
-}
-
-
 .manager-dropdown-header span {
-    display: block;
     margin-top: 2px;
+
     font-size: 9px;
-    color: #89918e;
+
+    color: #858b88;
 }
 
+
+/* ============================================================
+   DROPDOWN DIVIDER
+   ============================================================ */
 
 .manager-dropdown-divider {
-    border-top: 1px solid #edf0ef;
+    height: 1px;
+
+    margin: 6px 0;
+
+    background: #ecebe6;
 }
 
+
+/* ============================================================
+   DROPDOWN LINKS
+   ============================================================ */
 
 .manager-account-dropdown a {
     display: block;
-    padding: 10px 13px;
-    color: #59635f;
-    font-size: 10px;
+
+    padding: 10px 14px;
+
+    color: #555c59;
+
     text-decoration: none;
+
+    font-size: 11px;
+
+    font-weight: 500;
 }
 
-
 .manager-account-dropdown a:hover {
-    background: #f7faf8;
-    color: #2f6d4c;
+    background: #f4f5f1;
+
+    color: #294d5b;
 }
 .page-header {
     display: flex;
@@ -2804,32 +3037,68 @@ body {
     .search-box {
         width: 100%;
     }
-        .reports-top-header {
-        display: block;
-        padding: 18px;
+
+
+    .reports-top-header {
+        min-height: auto;
+
+        padding: 16px 18px;
+
+        align-items: flex-start;
     }
 
     .reports-heading h1 {
-        font-size: 24px;
+        font-size: 20px;
     }
 
     .reports-heading p {
-        font-size: 13px;
+        font-size: 10px;
     }
 
     .reports-header-right {
-        margin-top: 18px;
+        margin-top: 12px;
+
         justify-content: flex-end;
+
+        gap: 12px;
+    }
+
+    .reports-header-divider {
+        height: 34px;
     }
 
     .notification-dropdown {
-        right: -50px;
+        right: -45px;
+
         width: 290px;
     }
 
     .manager-account-info strong {
-        font-size: 13px;
+        font-size: 11px;
     }
+
+    .manager-account-info span,
+    .manager-account-info .manager-date,
+    .manager-account-info .manager-time {
+        font-size: 9px;
+    }
+
+    .manager-avatar {
+        width: 34px;
+        height: 34px;
+
+        min-width: 34px;
+    }
+
+    .notification-button {
+        width: 34px;
+        height: 34px;
+    }
+
+    .manager-account-arrow {
+        width: 22px;
+    }
+
 }
 
 </style>
@@ -2843,222 +3112,354 @@ body {
 
     <div class="min-h-screen">
 
-        <div class="reports-outer-card">
+ <div class="reports-outer-card">
 
-            <div class="reports-top-header">
+    <div class="reports-top-header">
 
-              <div class="reports-heading">
+        <!-- =====================================================
+             REPORTS TITLE
+             ===================================================== -->
 
-    <div class="reports-title-row">
-
-        <div class="reports-title-icon">
-            <?php echo icon_svg('file', 27); ?>
-        </div>
-
-        <div>
+        <div class="reports-heading">
 
             <h1>
                 Reports Management
             </h1>
 
-            <p>
-                View and analyze records based on date range.
-            </p>
-
         </div>
 
-    </div>
 
-</div>
+        <!-- =====================================================
+             HEADER RIGHT
+             ===================================================== -->
 
 
-                <div class="reports-header-right">
 
-                    <!-- NOTIFICATION -->
+        <!-- =================================================
+             HEADER RIGHT
+             ================================================= -->
 
-                    <div class="notification-container">
+        <div class="reports-header-right">
 
-                        <button type="button"
-                                class="notification-button"
-                                id="notificationButton">
 
-                            <span class="notification-icon">
-                                <?php echo icon_svg('bell', 22); ?>
+            <!-- =============================================
+                 NOTIFICATION
+                 ============================================= -->
+
+            <div class="notification-container">
+
+                <button
+                    type="button"
+                    class="notification-button"
+                    id="notificationButton"
+                    aria-label="Notifications"
+                >
+
+                    <span class="notification-icon">
+
+                        <?php
+                        echo icon_svg(
+                            'bell',
+                            25
+                        );
+                        ?>
+
+                    </span>
+
+
+                    <?php if ($notification_count > 0) { ?>
+
+                        <span class="notification-count">
+
+                            <?php
+                            echo $notification_count;
+                            ?>
+
+                        </span>
+
+                    <?php } ?>
+
+                </button>
+
+
+                <!-- =========================================
+                     NOTIFICATION DROPDOWN
+                     ========================================= -->
+
+                <div
+                    class="notification-dropdown"
+                    id="notificationDropdown"
+                >
+
+                    <div class="notification-dropdown-header">
+
+                        <strong>
+                            Notifications
+                        </strong>
+
+                        <?php if ($notification_count > 0) { ?>
+
+                            <span>
+                                <?php echo $notification_count; ?>
+                                pending
                             </span>
 
-                            <?php if ($notification_count > 0) { ?>
-
-                                <span class="notification-count">
-                                    <?php echo $notification_count; ?>
-                                </span>
-
-                            <?php } ?>
-
-                        </button>
-
-
-                        <div class="notification-dropdown"
-                             id="notificationDropdown">
-
-                            <div class="notification-dropdown-header">
-
-                                <strong>
-                                    Notifications
-                                </strong>
-
-                                <?php if ($notification_count > 0) { ?>
-
-                                    <span>
-                                        <?php echo $notification_count; ?> pending
-                                    </span>
-
-                                <?php } ?>
-
-                            </div>
-
-
-                            <div class="notification-list">
-
-                                <?php if (count($notifications) > 0) { ?>
-
-                                    <?php foreach ($notifications as $notification) { ?>
-
-                                        <div class="notification-item">
-
-                                            <div class="notification-item-icon">
-                                                <?php echo icon_svg('calendar', 15); ?>
-                                            </div>
-
-                                            <div class="notification-item-content">
-
-                                                <strong>
-                                                    New Reservation
-                                                </strong>
-
-                                                <span>
-                                                    <?php echo h($notification['customer']); ?>
-                                                </span>
-
-                                                <small>
-                                                    <?php echo h($notification['code']); ?>
-                                                </small>
-
-                                                <small>
-                                                    <?php echo format_date_time($notification['date']); ?>
-                                                </small>
-
-                                            </div>
-
-                                        </div>
-
-                                    <?php } ?>
-
-                                <?php } else { ?>
-
-                                    <div class="notification-empty">
-
-                                        <?php echo icon_svg('check', 24); ?>
-
-                                        <strong>
-                                            No new notifications
-                                        </strong>
-
-                                        <span>
-                                            You're all caught up.
-                                        </span>
-
-                                    </div>
-
-                                <?php } ?>
-
-                            </div>
-
-                        </div>
+                        <?php } ?>
 
                     </div>
 
 
-                    <!-- MANAGER ACCOUNT -->
+                    <div class="notification-list">
 
-                    <div class="manager-account-container">
+                        <?php if (count($notifications) > 0) { ?>
 
-                        <div class="manager-avatar">
-                            MA
-                        </div>
+                            <?php foreach ($notifications as $notification) { ?>
 
+                                <div class="notification-item">
 
-                        <div class="manager-account-info">
+                                    <div class="notification-item-icon">
 
-                            <strong>
-                                Manager Account
-                            </strong>
+                                        <?php
+                                        echo icon_svg(
+                                            'calendar',
+                                            15
+                                        );
+                                        ?>
 
-                            <span>
-                                Manager
-                            </span>
-
-                            <span>
-                                <?php echo date('F d, Y'); ?>
-                            </span>
-
-                            <b id="liveClock">
-                                <?php echo date('h:i:s A'); ?>
-                            </b>
-
-                        </div>
+                                    </div>
 
 
-                        <button type="button"
-                                class="manager-account-arrow"
-                                id="managerAccountButton">
+                                    <div class="notification-item-content">
 
-                            &#9662;
+                                        <strong>
+                                            New Reservation
+                                        </strong>
 
-                        </button>
+                                        <span>
+                                            <?php
+                                            echo h(
+                                                $notification['customer']
+                                            );
+                                            ?>
+                                        </span>
 
+                                        <small>
+                                            <?php
+                                            echo h(
+                                                $notification['code']
+                                            );
+                                            ?>
+                                        </small>
 
-                        <div class="manager-account-dropdown"
-                             id="managerAccountDropdown">
+                                        <small>
+                                            <?php
+                                            echo format_date_time(
+                                                $notification['date']
+                                            );
+                                            ?>
+                                        </small>
 
-                            <div class="manager-dropdown-header">
-
-                                <div class="dropdown-avatar">
-                                    MA
-                                </div>
-
-                                <div>
-
-                                    <strong>
-                                        Manager Account
-                                    </strong>
-
-                                    <span>
-                                        Manager
-                                    </span>
+                                    </div>
 
                                 </div>
+
+                            <?php } ?>
+
+                        <?php } else { ?>
+
+                            <div class="notification-empty">
+
+                                <?php
+                                echo icon_svg(
+                                    'check',
+                                    24
+                                );
+                                ?>
+
+                                <strong>
+                                    No new notifications
+                                </strong>
+
+                                <span>
+                                    You're all caught up.
+                                </span>
 
                             </div>
 
-
-                            <div class="manager-dropdown-divider"></div>
-
-
-                            <a href="manager_profile.php">
-                                My Profile
-                            </a>
-
-                            <a href="logout.php">
-                                Logout
-                            </a>
-
-                        </div>
+                        <?php } ?>
 
                     </div>
 
                 </div>
 
             </div>
+
+
+            <!-- =============================================
+                 VERTICAL DIVIDER
+                 ============================================= -->
+
+            <div class="reports-header-divider"></div>
+
+
+            <!-- =============================================
+                 MANAGER ACCOUNT
+                 ============================================= -->
+
+            <div class="manager-account-container">
+
+
+                <!-- MANAGER AVATAR -->
+
+                <div class="manager-avatar">
+
+                    <svg
+                        width="23"
+                        height="23"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+
+                        <circle
+                            cx="12"
+                            cy="8"
+                            r="4"
+                            fill="#4f8565"
+                        />
+
+                        <path
+                            d="M5 20C5 16.6863 8.13401 14 12 14C15.866 14 19 16.6863 19 20"
+                            fill="#4f8565"
+                        />
+
+                    </svg>
+
+                </div>
+
+
+                <!-- MANAGER DETAILS -->
+
+                <div class="manager-account-info">
+
+                    <strong>
+                        Manager
+                    </strong>
+
+                    <span class="manager-date">
+
+                        <?php
+                        echo date(
+                            'F d, Y'
+                        );
+                        ?>
+
+                    </span>
+
+                    <span
+                        class="manager-time"
+                        id="liveClock"
+                    >
+
+                        <?php
+                        echo date(
+                            'h:i:s A'
+                        );
+                        ?>
+
+                    </span>
+
+                </div>
+
+
+                <!-- DROPDOWN ARROW -->
+
+                <button
+                    type="button"
+                    class="manager-account-arrow"
+                    id="managerAccountButton"
+                    aria-label="Manager account menu"
+                >
+
+                    <span>
+                        &#8964;
+                    </span>
+
+                </button>
+
+
+                <!-- =========================================
+                     MANAGER DROPDOWN
+                     ========================================= -->
+
+                <div
+                    class="manager-account-dropdown"
+                    id="managerAccountDropdown"
+                >
+
+                    <div class="manager-dropdown-header">
+
+                        <div class="dropdown-avatar">
+
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                            >
+
+                                <circle
+                                    cx="12"
+                                    cy="8"
+                                    r="4"
+                                    fill="#4f8565"
+                                />
+
+                                <path
+                                    d="M5 20C5 16.6863 8.13401 14 12 14C15.866 14 19 16.6863 19 20"
+                                    fill="#4f8565"
+                                />
+
+                            </svg>
+
+                        </div>
+
+
+                        <div>
+
+                            <strong>
+                                Manager
+                            </strong>
+
+                            <span>
+                                Manager
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="manager-dropdown-divider"></div>
+
+
+                    <a href="manager_profile.php">
+                        My Profile
+                    </a>
+
+
+                    <a href="logout.php">
+                        Logout
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
 
 
             <div class="page-wrapper">
