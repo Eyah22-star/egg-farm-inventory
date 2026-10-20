@@ -1,11 +1,16 @@
 <?php
 ob_start();
 
+// Include standardized session configuration FIRST
+require_once 'session_config.php';
+
+date_default_timezone_set('Asia/Manila');
+
 require 'db.php';
-// Helper function to get manager users
+
 // Helper function to get manager users
 function getManagerUsers($conn) {
-    $managers = array();  // Changed from [] to array()
+    $managers = array();
     $stmt = $conn->prepare("SELECT id FROM users WHERE role = 'manager'");
     $stmt->execute();
     $result = $stmt->get_result();
@@ -15,9 +20,17 @@ function getManagerUsers($conn) {
     $stmt->close();
     return $managers;
 }
-// Start session to store submission status safely across redirect
-if (session_id() == '') {
-    session_start();
+
+function getOwnerUsers($conn) {
+    $owners = array();
+    $stmt = $conn->prepare("SELECT id FROM users WHERE role = 'owner' AND status = 'active'");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $owners[] = $row['id'];
+    }
+    $stmt->close();
+    return $owners;
 }
 
 // Security Enforcement
@@ -32,10 +45,42 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'customer') {
     exit();
 }
 
+/* =========================================================
+   CUSTOMER LOGOUT TOKEN
+   PHP 5.5 COMPATIBLE
+========================================================= */
+
+if (empty($_SESSION['customer_logout_token'])) {
+    if (function_exists('random_bytes')) {
+        $_SESSION['customer_logout_token'] = bin2hex(
+            random_bytes(32)
+        );
+    } elseif (function_exists('openssl_random_pseudo_bytes')) {
+        $_SESSION['customer_logout_token'] = bin2hex(
+            openssl_random_pseudo_bytes(32)
+        );
+    } else {
+        $_SESSION['customer_logout_token'] = hash(
+            'sha256',
+            uniqid(mt_rand(), true) . session_id()
+        );
+    }
+}
+
 // Match the active logged-in parameters
 $user_id = $_SESSION['user_id'];
 $customer_name = isset($_SESSION['fullname']) ? $_SESSION['fullname'] : '';
 $user_role = isset($_SESSION['role']) ? $_SESSION['role'] : 'Customer';
+
+// =========================================================
+// NOTIFICATION COUNT
+// =========================================================
+
+$unread_notifications = 0;
+$notification_count_result = $conn->query("SELECT COUNT(*) AS total FROM notifications WHERE user_id = " . (int)$user_id . " AND is_read = 0");
+if ($notification_count_result && ($notification_count_row = $notification_count_result->fetch_assoc())) {
+    $unread_notifications = (int)$notification_count_row['total'];
+}
 
 // Helper function to insert notifications easily into the database
 function add_notification($conn, $user_id, $title, $description, $type = 'info') {
@@ -241,6 +286,17 @@ foreach ($managers as $manager_id) {
     );
 }
 
+$owners = getOwnerUsers($conn);
+foreach ($owners as $owner_id) {
+    add_notification(
+        $conn,
+        $owner_id,
+        "New Reservation Received",
+        "Customer {$customer_name} submitted reservation {$reservation_code}.",
+        "info"
+    );
+}
+
             $conn->commit();
 
             $_SESSION['success_message'] =
@@ -338,6 +394,48 @@ while ($row = $reservation_result->fetch_assoc()) {
 
 $reservation_stmt->close();
 
+
+// =========================================================
+// MY RESERVATIONS PAGINATION
+// 3 RESERVATIONS PER PAGE
+// =========================================================
+
+$reservations_per_page = 3;
+
+$total_reservations = count($my_reservations);
+
+$total_pages = ceil(
+    $total_reservations / $reservations_per_page
+);
+
+$current_page = isset($_GET['page'])
+    ? intval($_GET['page'])
+    : 1;
+
+if ($current_page < 1) {
+    $current_page = 1;
+}
+
+if ($current_page > $total_pages && $total_pages > 0) {
+    $current_page = $total_pages;
+}
+
+$reservation_offset =
+    ($current_page - 1) * $reservations_per_page;
+
+
+// Convert associative array to indexed array
+$my_reservations = array_values($my_reservations);
+
+
+// Get only reservations for current page
+$paginated_reservations = array_slice(
+    $my_reservations,
+    $reservation_offset,
+    $reservations_per_page
+);
+
+
 // Default avatar - no profile_photo column required
 
 ?>
@@ -354,1120 +452,2180 @@ $reservation_stmt->close();
 </head>
 <style>
 
-/* =========================================================
-   CUSTOMER RESERVATION — CUSTOMER DASHBOARD MATCH
-   HEADER + PAGE SHELL ONLY
-========================================================= */
 
 /* =========================================================
-   MAIN CONTENT
+   VDVC CUSTOMER RESERVATION PAGE
+   Reference-based UI redesign
 ========================================================= */
+
+:root {
+    --vdvc-green: #214f2c;
+    --vdvc-green-dark: #103f2d;
+    --vdvc-green-light: #eff5ef;
+    --vdvc-text: #202622;
+    --vdvc-muted: #69736d;
+    --vdvc-border: #dedfd9;
+    --vdvc-background: #f5f6f2;
+    --vdvc-white: #ffffff;
+}
+
+* {
+    box-sizing: border-box;
+}
+
 html,
 body {
-
-    margin:
-        0;
-
-    padding:
-        0;
-
-    width:
-        100%;
-
-    min-height:
-        100%;
-
-    background:
-        #f3f1eb;
-}
-.main-content {
-
-    margin-left:
-        312px;
-
-    min-height:
-        100vh;
-
-    padding:
-        18px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #eeece6 0%,
-            #f5f3ed 100%
-        );
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    background: var(--vdvc-background);
+    color: var(--vdvc-text);
+    font-family: Arial, Helvetica, sans-serif;
 }
 
+body {
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+a {
+    -webkit-tap-highlight-color: transparent;
+}
 
 /* =========================================================
-   RESERVATION OUTER CARD
-   SAME AS CUSTOMER DASHBOARD WRAPPER
+   CUSTOMER NAVBAR — MATCH CUSTOMER DASHBOARD
 ========================================================= */
 
-.reservation-card {
+.customer-navbar {
+    width: 100%;
+    height: 84px;
 
-    width:
-        100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-    background:
-        #ffffff;
+    padding: 0 48px;
 
-    border:
-        1px solid #dedbd2;
+    background: #0d4828;
 
-    border-radius:
-        22px;
+    border-top: 1px solid #dddddd;
+    border-bottom: 1px solid #e6e6e6;
 
-    box-shadow:
-        0 12px 35px
-        rgba(
-            80,
-            72,
-            55,
-            0.10
-        );
+     /* Keep navbar visible while scrolling */
+    position: sticky;
+    top: 0;
+    left: 0;
 
-    overflow:
-        hidden;
+    z-index: 1000;
 }
 
+/* LOGO */
 
-/* =========================================================
-   REMOVE EXTRA TAILWIND OUTER SPACING
-========================================================= */
+.customer-navbar-logo {
+    display: flex;
+    align-items: center;
 
-.main-content > .flex-1 {
-    width: 100% !important;
+    width: 190px;
+    flex-shrink: 0;
 }
 
-.main-content > .flex-1 > .max-w-7xl {
-    width: 100% !important;
-    max-width: none !important;
-
-    margin: 0 !important;
-
-    padding:
-        0 !important;
+.customer-navbar-logo a {
+    display: flex;
+    align-items: center;
 }
 
-
-/* =========================================================
-   CUSTOMER RESERVATION HEADER
-   EXACT CUSTOMER DASHBOARD HEADER SIZE
-========================================================= */
-
-.reservation-card > header {
-
-    min-height:
-        86px !important;
-
-    width:
-        100% !important;
-
-    padding:
-        0 28px !important;
-
-    display:
-        flex !important;
-
-    align-items:
-        center !important;
-
-    justify-content:
-        space-between !important;
-
-    background:
-        #f7f6f2 !important;
-
-    border-bottom:
-        1px solid #dddcd6 !important;
-
-    box-sizing:
-        border-box !important;
+.customer-navbar-logo img {
+    width: 145px;
+    height: auto;
+    display: block;
 }
 
+/* NAVIGATION LINKS */
 
-/* =========================================================
-   HEADER TITLE
-========================================================= */
+.customer-navbar-center {
+    height: 100%;
 
-.reservation-card > header h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    margin:
-        0 !important;
+    gap: 38px;
 
-    padding:
-        0 !important;
-
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif !important;
-
-    font-size:
-        1.35rem !important;
-
-    font-weight:
-        700 !important;
-
-    line-height:
-        1.2 !important;
-
-    color:
-        #3f4b45 !important;
-
-    letter-spacing:
-        -0.3px !important;
+    margin-left: 80px;
 }
 
+.customer-nav-link {
+    height: 100%;
 
-/* =========================================================
-   HEADER RIGHT SIDE
-========================================================= */
+    display: flex;
+    align-items: center;
 
-.reservation-card > header > div {
+    position: relative;
 
-    display:
-        flex !important;
+    padding: 0 2px;
 
-    align-items:
-        center !important;
+    text-decoration: none;
 
-    gap:
-        18px !important;
+    color: #e8f1e9;
 
-    height:
-        100% !important;
+    font-size: 14px;
+    font-weight: 500;
+
+    white-space: nowrap;
+
+    transition: color 0.2s ease;
 }
 
-
-/* =========================================================
-   CUSTOMER ACCOUNT AREA
-
-   Customer Dashboard:
-   Avatar → Name → Date/Time → Dropdown
-
-   Reservation:
-   We keep the existing name position but
-   make its size/color match.
-========================================================= */
-
-.reservation-card > header .text-right {
-
-    display:
-        flex !important;
-
-    flex-direction:
-        column !important;
-
-    justify-content:
-        center !important;
-
-    min-width:
-        100px !important;
-
-    text-align:
-        left !important;
+.customer-nav-link:hover {
+    color: #b9e4c3;
 }
 
-
-/* =========================================================
-   CUSTOMER NAME
-========================================================= */
-
-.reservation-card > header .text-right > div:first-child {
-
-    display:
-        block !important;
-
-    margin:
-        0 !important;
-
-    color:
-        #3f4b45 !important;
-
-    font-size:
-        0.88rem !important;
-
-    font-weight:
-        700 !important;
-
-    line-height:
-        1.2 !important;
+.customer-nav-link.active {
+    color: #ffffff;
+    font-weight: 700;
 }
 
+.customer-nav-link.active::after {
+    content: "";
 
-/* =========================================================
-   CUSTOMER ROLE
-========================================================= */
+    position: absolute;
 
-.reservation-card > header .text-right > div:last-child {
+    left: 0;
+    right: 0;
+    bottom: 20px;
 
-    margin-top:
-        5px !important;
+    height: 2px;
 
-    font-size:
-        0.63rem !important;
-
-    color:
-        #8a9590 !important;
-
-    line-height:
-        1.2 !important;
+    background: #175c31;
 }
 
+/* RIGHT SIDE */
 
-/* =========================================================
-   PROFILE AVATAR
-   EXACT CUSTOMER DASHBOARD SIZE
-========================================================= */
+.customer-navbar-right {
+    display: flex;
+    align-items: center;
 
-.reservation-card > header .w-10.h-10 {
+    gap: 16px;
 
-    width:
-        54px !important;
+    min-width: 240px;
 
-    height:
-        54px !important;
-
-    min-width:
-        54px !important;
-
-    border-radius:
-        50% !important;
-
-    overflow:
-        hidden !important;
-
-    background:
-        #e8ebe7 !important;
-
-    border:
-        1px solid #d9ddd8 !important;
-
-    box-shadow:
-        0 2px 6px
-        rgba(
-            0,
-            0,
-            0,
-            0.04
-        ) !important;
+    justify-content: flex-end;
 }
 
+/* NOTIFICATION */
 
-.reservation-card > header .w-10.h-10 img {
-
-    width:
-        100% !important;
-
-    height:
-        100% !important;
-
-    object-fit:
-        cover !important;
-
-    display:
-        block !important;
+.customer-notification-wrapper {
+    position: relative;
 }
-
-
-/* =========================================================
-   NOTIFICATION CONTAINER
-========================================================= */
-
-.reservation-card > header .relative {
-
-    position:
-        relative !important;
-}
-
-
-/* =========================================================
-   NOTIFICATION BELL
-========================================================= */
-
-.reservation-card > header .relative > div:first-child {
-
-    width:
-        40px !important;
-
-    height:
-        40px !important;
-
-    padding:
-        0 !important;
-
-    display:
-        flex !important;
-
-    align-items:
-        center !important;
-
-    justify-content:
-        center !important;
-
-    border-radius:
-        50% !important;
-
-    color:
-        #65716b !important;
-
-    background:
-        transparent !important;
-}
-
-
-.reservation-card > header .relative > div:first-child:hover {
-
-    background:
-        transparent !important;
-
-    color:
-        #527d59 !important;
-}
-
-
-/* =========================================================
-   NOTIFICATION ICON
-========================================================= */
-
-.reservation-card > header .relative > div:first-child i {
-
-    color:
-        #65716b !important;
-
-    font-size:
-        1.2rem !important;
-}
-
-
-.reservation-card > header .relative > div:first-child:hover i {
-
-    color:
-        #527d59 !important;
-}
-
-
-/* =========================================================
-   NOTIFICATION BADGE
-   SAME SIZE/COLOR AS DASHBOARD
-========================================================= */
-
-#bell_badge {
-
-    top:
-        1px !important;
-
-    right:
-        0 !important;
-
-    width:
-        auto !important;
-
-    min-width:
-        17px !important;
-
-    height:
-        17px !important;
-
-    padding:
-        0 4px !important;
-
-    border-radius:
-        50% !important;
-
-    background:
-        #527d59 !important;
-
-    border:
-        2px solid #f7f6f2 !important;
-}
-
-
-/* =========================================================
-   NOTIFICATION DROPDOWN
-   CHANGE BLUE ACCENTS TO DASHBOARD GREEN
-========================================================= */
-
-#notification_dropdown {
-
-    width:
-        320px !important;
-
-    margin-top:
-        12px !important;
-
-    background:
-        #ffffff !important;
-
-    border:
-        1px solid #dedbd2 !important;
-
-    border-radius:
-        12px !important;
-
-    box-shadow:
-        0 12px 30px
-        rgba(
-            70,
-            65,
-            55,
-            0.12
-        ) !important;
-}
-
-
-/* =========================================================
-   NOTIFICATION HEADER
-========================================================= */
-
-#notification_dropdown > div:first-child {
-
-    background:
-        #f7f6f2 !important;
-
-    border-bottom:
-        1px solid #e9e6df !important;
-}
-
-
-#notification_dropdown > div:first-child span:first-child {
-
-    color:
-        #3f4b45 !important;
-}
-
-
-/* =========================================================
-   UNREAD COUNT
-========================================================= */
-
-#unread_count {
-
-    background:
-        #e9f1e6 !important;
-
-    color:
-        #527d59 !important;
-}
-
-
-/* =========================================================
-   NOTIFICATION ITEMS
-========================================================= */
-
-#notification_list > div {
-
-    transition:
-        background 0.2s ease;
-}
-
-
-#notification_list > div:hover {
-
-    background:
-        #fafaf7 !important;
-}
-
-
-/* =========================================================
-   NOTIFICATION ICON COLORS
-========================================================= */
-
-#notification_list .bg-blue-100 {
-
-    background:
-        #eef3ed !important;
-
-    color:
-        #527d59 !important;
-}
-
-
-/* =========================================================
-   RESERVATION BODY
-   SAME INNER SPACING FEEL AS DASHBOARD
-========================================================= */
-
-.reservation-card > .p-6 {
-
-    padding:
-        22px 28px 28px !important;
-}
-
-
-/* =========================================================
-   MY RESERVATIONS SECTION
-========================================================= */
-
-.reservation-card .mt-6 {
-
-    border:
-        1px solid #e2dfd7 !important;
-
-    border-radius:
-        10px !important;
-
-    background:
-        #ffffff !important;
-
-    box-shadow:
-        0 3px 10px
-        rgba(
-            70,
-            65,
-            55,
-            0.05
-        ) !important;
-}
-
-
-/* =========================================================
-   RESPONSIVE
-========================================================= */
-
-@media screen and (max-width: 1100px) {
-
-    .main-content {
-
-        margin-left:
-            270px !important;
-
-        width:
-            calc(100% - 270px) !important;
-    }
-}
-
-
-@media screen and (max-width: 900px) {
-
-    .main-content {
-
-        margin-left:
-            0 !important;
-
-        width:
-            100% !important;
-
-        padding:
-            15px !important;
-    }
-
-    .reservation-card {
-
-        border-radius:
-            18px !important;
-    }
-
-    .reservation-card > header {
-
-        padding:
-            0 18px !important;
-    }
-}
-
-
-@media screen and (max-width: 600px) {
-
-    .reservation-card > .p-6 {
-
-        padding:
-            18px !important;
-    }
-
-    .reservation-card > header h1 {
-
-        font-size:
-            1.15rem !important;
-    }
-
-    .reservation-card > header .text-right {
-
-        display:
-            none !important;
-    }
-}
-/* =========================================================
-   CUSTOMER RESERVATION HEADER
-   SAME AS CUSTOMER DASHBOARD
-========================================================= */
-
-.customer-dashboard-topbar {
-
-    min-height:
-        86px;
-
-    width:
-        100%;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        space-between;
-
-    padding:
-        0 28px;
-
-    background:
-        #f7f6f2;
-
-    border-bottom:
-        1px solid #dddcd6;
-
-    box-sizing:
-        border-box;
-}
-
-
-/* =========================================================
-   HEADER TITLE
-========================================================= */
-
-.customer-dashboard-page-title {
-
-    margin:
-        0;
-
-    font-size:
-        1.35rem;
-
-    font-weight:
-        700;
-
-    color:
-        #3f4b45;
-
-    letter-spacing:
-        -0.3px;
-}
-
-
-/* =========================================================
-   HEADER RIGHT
-========================================================= */
-
-.customer-dashboard-topbar-right {
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        18px;
-
-    height:
-        100%;
-}
-
-
-/* =========================================================
-   NOTIFICATION CONTAINER
-========================================================= */
-
-.customer-notification-container {
-
-    position:
-        relative;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-}
-
-
-/* =========================================================
-   NOTIFICATION
-========================================================= */
 
 .customer-top-notification {
+    width: 38px;
+    height: 38px;
 
-    position:
-        relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    width:
-        40px;
+    border: none;
+    background: transparent;
 
-    height:
-        40px;
+    color: #eaf2e8;
 
-    display:
-        flex;
+    font-size: 17px;
 
-    align-items:
-        center;
+    cursor: pointer;
 
-    justify-content:
-        center;
+    position: relative;
 
-    text-decoration:
-        none;
-
-    background:
-        transparent;
-
-    border:
-        none;
-
-    padding:
-        0;
-
-    cursor:
-        pointer;
-
-    color:
-        #65716b;
-
-    font-size:
-        1.2rem;
-
-    transition:
-        0.2s ease;
+    padding: 0;
 }
-
 
 .customer-top-notification:hover {
-
-    color:
-        #527d59;
+    color: #bfe3c7;
 }
-
-
-/* =========================================================
-   NOTIFICATION BADGE
-========================================================= */
 
 .customer-notification-badge {
+    position: absolute;
 
-    position:
-        absolute;
+    top: 1px;
+    right: 1px;
 
-    top:
-        1px;
+    min-width: 15px;
+    height: 15px;
 
-    right:
-        0;
+    padding: 0 3px;
 
-    min-width:
-        17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    height:
-        17px;
+   background-color: #eaf2e8;
+    color: #0d4828;
+    border: 2px solid #0d4828;
 
-    padding:
-        0 4px;
+    border-radius: 50%;
 
-    border-radius:
-        50%;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    background:
-        #527d59;
-
-    color:
-        #ffffff;
-
-    font-size:
-        0.58rem;
-
-    font-weight:
-        700;
-
-    border:
-        2px solid #f7f6f2;
+    font-size: 8px;
+    font-weight: 700;
 }
 
+/* NOTIFICATION DROPDOWN */
 
-/* =========================================================
-   HEADER DIVIDER
-========================================================= */
+.customer-notification-dropdown {
+    position: absolute;
 
-.customer-topbar-divider {
+    top: 48px;
+    right: 0;
 
-    width:
-        1px;
+    width: 355px;
 
-    height:
-        42px;
+    background: #ffffff;
 
-    background:
-        #deded8;
+    border: 1px solid #dedede;
+
+    border-radius: 10px;
+
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+
+    overflow: hidden;
+
+    z-index: 1000;
 }
 
-
-/* =========================================================
-   CUSTOMER PROFILE
-========================================================= */
-
-.customer-top-profile {
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        11px;
-
-    min-width:
-        190px;
-
-    text-decoration:
-        none;
-
-    color:
-        #3f4b45;
+.customer-notification-dropdown.hidden {
+    display: none !important;
 }
 
+.customer-notification-dropdown-header {
+    min-height: 52px;
 
-/* =========================================================
-   CUSTOMER AVATAR
-========================================================= */
+    padding: 0 16px;
 
-.customer-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-    width:
-        54px;
-
-    height:
-        54px;
-
-    min-width:
-        54px;
-
-    border-radius:
-        50%;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    background:
-        #e8ebe7;
-
-    border:
-        1px solid #d9ddd8;
-
-    color:
-        #527d59;
-
-    font-size:
-        1.25rem;
-
-    box-shadow:
-        0 2px 6px
-        rgba(
-            0,
-            0,
-            0,
-            0.04
-        );
+    border-bottom: 1px solid #eeeeee;
 }
 
-
-/* =========================================================
-   CUSTOMER ACCOUNT DETAILS
-========================================================= */
-
-.customer-account-details {
-
-    display:
-        flex;
-
-    flex-direction:
-        column;
-
-    justify-content:
-        center;
-
-    min-width:
-        100px;
+.customer-panel-title-group {
+    display: flex;
+    align-items: center;
+    gap: 9px;
 }
 
+.customer-panel-title-icon {
+    width: 30px;
+    height: 30px;
 
-/* =========================================================
-   CUSTOMER NAME
-========================================================= */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-.customer-top-name {
+    border-radius: 50%;
 
-    display:
-        block;
+    background: #edf5ee;
+    color: #39704c;
 
-    margin:
-        0;
-
-    color:
-        #3f4b45;
-
-    font-size:
-        0.88rem;
-
-    font-weight:
-        700;
-
-    line-height:
-        1.2;
+    font-size: 13px;
 }
 
-
-/* =========================================================
-   CUSTOMER ROLE
-========================================================= */
-
-.customer-role {
-
-    display:
-        block;
-
-    margin-top:
-        5px;
-
-    color:
-        #8a9590;
-
-    font-size:
-        0.63rem;
-
-    line-height:
-        1.2;
-
-    white-space:
-        nowrap;
+.customer-dashboard-panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #34483d;
 }
 
+.customer-mark-all-link {
+    font-size: 10px;
+    font-weight: 700;
 
-/* =========================================================
-   DATE AND TIME
-========================================================= */
+    color: #39704c;
 
-.customer-date-time {
+    text-decoration: none;
 
-    display:
-        flex;
-
-    flex-direction:
-        column;
-
-    align-items:
-        flex-start;
-
-    gap:
-        2px;
-
-    margin-top:
-        5px;
-
-    white-space:
-        nowrap;
+    cursor: pointer;
 }
 
-
-.customer-date {
-
-    font-size:
-        0.63rem;
-
-    color:
-        #8a9590;
+.customer-mark-all-link:hover {
+    text-decoration: underline;
 }
 
-
-.customer-time {
-
-    font-size:
-        0.63rem;
-
-    color:
-        #527d59;
-
-    font-weight:
-        600;
-
-    line-height:
-        1.2;
+.customer-notification-list {
+    max-height: 390px;
+    overflow-y: auto;
 }
 
+.customer-notification-item {
+    display: flex;
+    align-items: flex-start;
 
-/* =========================================================
-   DROPDOWN ICON
-========================================================= */
+    gap: 10px;
 
-.customer-dropdown-icon {
+    padding: 12px 15px;
 
-    width:
-        28px;
+    border-bottom: 1px solid #f0f0f0;
 
-    display:
-        flex;
+    cursor: pointer;
 
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    color:
-        #65716b;
-
-    font-size:
-        0.7rem;
+    transition: background 0.15s ease;
 }
-/* =========================================================
-   RESERVATION STEP CARDS
-========================================================= */
 
-.step-column {
+.customer-notification-item:hover {
+    background: #fafcf9;
+}
+
+.customer-notification-item.unread {
+    background: #f1f7f2;
+}
+
+.customer-notification-icon {
+    width: 34px;
+    height: 34px;
+
+    min-width: 34px;
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 13px;
+}
+
+.customer-notification-icon.success {
+    background: #e8f4e9;
+    color: #39834c;
+}
+
+.customer-notification-icon.alert {
+    background: #fbe9e7;
+    color: #c85448;
+}
+
+.customer-notification-icon.info {
+    background: #e7f0f5;
+    color: #46758a;
+}
+
+.customer-notification-icon.warning {
+    background: #fff2dc;
+    color: #bd8127;
+}
+
+.customer-notification-content {
+    flex: 1;
     min-width: 0;
 }
 
-.step-card {
-    background: #ffffff;
-    border: 1px solid #dedbd2;
-    border-radius: 16px;
-    padding: 22px;
-    height: 100%;
-    box-sizing: border-box;
-    box-shadow: 0 4px 14px rgba(80, 72, 55, 0.06);
+.customer-notification-title {
+    font-size: 12px;
+    font-weight: 700;
+
+    color: #30473a;
+
+    margin-bottom: 3px;
 }
 
-.step-1-card {
+.customer-notification-description {
+    font-size: 11px;
+    line-height: 1.4;
+
+    color: #718078;
+}
+
+.customer-notification-time {
+    font-size: 10px;
+    color: #9aa39e;
+
+    margin-top: 3px;
+}
+
+.customer-notification-empty {
+    padding: 40px 20px;
+
+    text-align: center;
+
+    color: #929b95;
+}
+
+.customer-notification-empty i {
+    font-size: 30px;
+    margin-bottom: 10px;
+    color: #ccd5cf;
+}
+
+.customer-notification-empty p {
+    margin: 0;
+    font-size: 12px;
+}
+
+/* CUSTOMER ACCOUNT */
+
+
+/* =========================================================
+   CUSTOMER ACCOUNT DROPDOWN
+========================================================= */
+
+.customer-account-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.customer-account-link {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    text-decoration: none;
+   color: #263d32;
+}
+
+
+
+.customer-account-toggle {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #eaf2e8;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.customer-account-toggle:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.customer-account-dropdown {
+    position: absolute;
+    top: calc(100% + 13px);
+    right: 0;
+    width: 190px;
+    padding: 7px;
     background: #ffffff;
+    border: 1px solid #e1e7e1;
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+    z-index: 1100;
+}
+
+.customer-account-dropdown.hidden {
+    display: none;
+}
+
+.customer-logout-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 12px 13px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #b33a32;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.customer-logout-option:hover {
+    background: #fff0ee;
+}
+
+.customer-logout-option i {
+    width: 16px;
+    text-align: center;
+}
+
+/* =========================================================
+   LOGOUT CONFIRMATION MODAL
+========================================================= */
+
+.customer-logout-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 31, 21, 0.55);
+    z-index: 2000;
+}
+
+.customer-logout-overlay.hidden {
+    display: none;
+}
+
+.customer-logout-modal {
+    width: 100%;
+    max-width: 390px;
+    padding: 28px 25px 23px;
+    background: #ffffff;
+    border: 1px solid #e4e8e3;
+    border-radius: 15px;
+    box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+    text-align: center;
+    animation: logoutModalAppear 0.18s ease-out;
+}
+
+.customer-logout-icon {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fff0ee;
+    color: #b33a32;
+    font-size: 23px;
+}
+
+.customer-logout-modal h2 {
+    margin: 0 0 10px;
+    color: #263d32;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.customer-logout-modal p {
+    margin: 0;
+    color: #737d75;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.customer-logout-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 25px;
+}
+
+.customer-logout-cancel,
+.customer-logout-confirm {
+    min-height: 40px;
+    padding: 0 17px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.customer-logout-cancel {
+    border: 1px solid #d9dfd9;
+    background: #ffffff;
+    color: #46554d;
+}
+
+.customer-logout-cancel:hover {
+    background: #f3f5f2;
+}
+
+.customer-logout-confirm {
+    border: 1px solid #b33a32;
+    background: #b33a32;
+    color: #ffffff;
+}
+
+.customer-logout-confirm:hover {
+    background: #962e27;
+}
+
+.customer-logout-actions form {
+    margin: 0;
+}
+
+@keyframes logoutModalAppear {
+    from {
+        opacity: 0;
+        transform: translateY(7px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+
+.customer-avatar {
+    width: 43px;
+    height: 43px;
+
+    min-width: 43px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+   background-color: #dcebdd;
+color: #0d4828;
+
+    border: 1px solid #e1e7e1;
+
+   
+
+    font-size: 16px;
+}
+
+.customer-account-details {
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+
+    min-width: 100px;
+}
+
+.customer-top-name {
+    display: block;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    line-height: 1.2;
+
+    color: #ffffff;
+}
+
+.customer-date-time {
+    display: flex;
+    flex-direction: column;
+
+    gap: 1px;
+
+    margin-top: 3px;
+}
+
+.customer-date {
+    font-size: 9px;
+    color: #d5e5d8;
+}
+
+.customer-time {
+    font-size: 9px;
+
+    color: #d5e5d8;
+
+    font-weight: 600;
+}
+
+.customer-dropdown-icon {
+    color: #718079;
+    font-size: 9px;
+
+    margin-left: 3px;
+}
+
+/* =========================================================
+   RESPONSIVE NAVBAR — MATCH DASHBOARD
+========================================================= */
+
+@media screen and (max-width: 1200px) {
+    .customer-navbar {
+        padding: 0 30px;
+    }
+
+    .customer-navbar-center {
+        gap: 25px;
+        margin-left: 30px;
+    }
+}
+
+@media screen and (max-width: 900px) {
+    .customer-navbar {
+        height: auto;
+        min-height: 75px;
+
+        padding: 12px 22px;
+
+        flex-wrap: wrap;
+
+        gap: 10px;
+    }
+
+    .customer-navbar-logo {
+        width: auto;
+    }
+
+    .customer-navbar-logo img {
+        width: 120px;
+    }
+
+    .customer-navbar-center {
+        order: 3;
+
+        width: 100%;
+
+        height: 42px;
+
+        margin-left: 0;
+
+        gap: 28px;
+
+        justify-content: center;
+    }
+
+    .customer-navbar-right {
+        min-width: auto;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .customer-navbar {
+        padding: 10px 15px;
+    }
+
+    .customer-account-details,
+    .customer-dropdown-icon {
+        display: none;
+    }
+
+    .customer-navbar-center {
+        gap: 18px;
+        overflow-x: auto;
+        justify-content: flex-start;
+    }
+
+    .customer-nav-link {
+        font-size: 12px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+}
+
+
+/* =========================================================
+   MAIN PAGE LAYOUT
+   No sidebar or dashboard left margin
+========================================================= */
+
+.main-content {
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 15px;
+    background: #f3f1eb;
+}
+
+.main-content > .flex-1 {
+    width: 100%;
+    min-width: 0;
+    display: block;
+}
+
+.main-content > .flex-1 > .w-full,
+.main-content > .flex-1 > .max-w-7xl {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+#reservation_form {
+    width: 100%;
+    margin: 0;
+}
+
+.reservation-card {
+    width: 100%;
+    overflow: visible;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* =========================================================
+   RESERVATION HERO BANNER
+
+   Uses reservation.jpg. Change the path only if your
+   actual banner image is stored in another location.
+========================================================= */
+
+.reservation-hero {
+    position: relative;
+    width: 100%;
+    min-height: 143px;
+    display: flex;
+    align-items: center;
+    padding: 24px 5%;
+    overflow: hidden;
+    
+    background-image:
+       
+        url("historyy.jpg");
+    background-position: center, center 52%;
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.reservation-hero-content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.reservation-hero h1 {
+    margin: 0 0 7px;
+    color: #17472d;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(27px, 3.1vw, 35px);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.5px;
+}
+
+.reservation-hero h1 i {
+    margin-right: 5px;
+    font-size: 0.8em;
+}
+
+.reservation-hero p {
+    margin: 0;
+    color: #303a32;
+    font-size: 15px;
+    line-height: 1.45;
+}
+
+/* =========================================================
+   THREE-STEP PROGRESS BAR
+========================================================= */
+
+.reservation-progress {
+    width: calc(100% - 56px);
+    max-width: 1250px;
+    min-height: 76px;
+    margin: 14px auto 13px;
+    padding: 13px 20px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid #eeefe9;
+    border-radius: 15px;
+    box-shadow: 0 2px 7px rgba(54, 66, 48, 0.025);
+}
+
+.reservation-progress-step {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #303830;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.reservation-progress-step:not(:last-child) {
+    border-right: 1px solid #e2e4de;
+}
+
+.reservation-progress-number {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d3d9d2;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #38453b;
+    font-size: 12px;
+}
+
+.reservation-progress-step.active .reservation-progress-number {
+    border-color: var(--vdvc-green);
+    background: var(--vdvc-green);
+    color: #ffffff;
+}
+
+.reservation-progress-label {
+    max-width: 155px;
+}
+
+/* =========================================================
+   RESERVATION PROGRESS - COMPLETED STEPS
+========================================================= */
+
+.reservation-progress-step.completed .reservation-progress-number {
+    background-color: #214f2c;
+    border-color: #214f2c;
+    color: #ffffff;
+}
+
+.reservation-progress-step.completed .reservation-progress-label {
+    color: #214f2c;
+    font-weight: 700;
+}
+
+/* =========================================================
+   RESERVATION THREE-COLUMN GRID
+========================================================= */
+
+.reservation-card > .p-6 {
+    width: 100%;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 28px 30px !important;
+}
+
+.reservation-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.03fr) minmax(0, 1.03fr) minmax(0, 1fr);
+    align-items: stretch !important;
+    gap: 20px !important;
+}
+
+.step-column {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+}
+
+.step-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 385px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid #dedfd9;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(46, 54, 43, 0.055);
+    overflow: visible;
+}
+
+.step-card h2 {
+    margin: 0 0 14px !important;
+    color: #242824 !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1.35;
 }
 
 .step-scroll {
     min-height: 0;
+    flex: 1 1 auto;
+    overflow: visible;
+    padding-right: 0;
 }
+
+.step-1-content {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.step-1-content > div,
+.step-scroll > div {
+    min-width: 0;
+}
+
+/* =========================================================
+   FORM LABELS AND INPUTS
+========================================================= */
+
+.step-card label {
+    display: block;
+    margin-bottom: 4px !important;
+    color: #343a35 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 1.35;
+    letter-spacing: 0.15px;
+    text-transform: uppercase;
+}
+
+.step-card input:not([type="hidden"]):not([type="checkbox"]),
+.step-card select,
+.step-card textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    padding: 6px 10px !important;
+    border: 1px solid #d8dbd6 !important;
+    border-radius: 8px !important;
+    background: #ffffff;
+    color: #333a35;
+    font-size: 14px !important;
+    line-height: 1.35;
+    box-shadow: none;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.step-card input:focus,
+.step-card select:focus,
+.step-card textarea:focus {
+    border-color: #73967a !important;
+    box-shadow: 0 0 0 2px rgba(33, 79, 44, 0.08);
+}
+
+.step-card input::placeholder,
+.step-card textarea::placeholder {
+    color: #8b918c;
+    opacity: 1;
+}
+
+.step-card input[readonly] {
+    background: #f8f9f6 !important;
+}
+
+.step-card .relative > i.absolute {
+    top: 50% !important;
+    right: 11px !important;
+    transform: translateY(-50%);
+}
+
+.step-card .relative input {
+    padding-right: 30px !important;
+}
+
+/* =========================================================
+   RESERVATION CODE
+========================================================= */
+
+.step-1-card > .rounded-lg {
+    margin-bottom: 8px !important;
+    padding: 8px 12px !important;
+    border: 1px solid #cbd8cd !important;
+    border-radius: 8px !important;
+    background: #f1f6f2 !important;
+}
+
+.step-1-card > .rounded-lg label {
+    margin-bottom: 2px !important;
+    font-size: 11px !important;
+}
+
+.step-1-card > .rounded-lg .text-lg {
+    color: var(--vdvc-green) !important;
+    font-size: 17px !important;
+    font-weight: 800 !important;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.step-1-card > .rounded-lg p {
+    margin-top: 2px !important;
+    font-size: 11px !important;
+}
+
+.copy-reservation-btn {
+    width: 30px !important;
+    height: 30px !important;
+    flex-shrink: 0;
+    border: none !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: #68746c !important;
+    cursor: pointer;
+}
+
+.copy-reservation-btn:hover {
+    background: #e5eee6 !important;
+    color: var(--vdvc-green) !important;
+}
+
+/* =========================================================
+   DELIVERY ADDRESS MAP
+========================================================= */
+
+#map {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 136px !important;
+    min-height: 136px;
+    margin-top: 5px;
+    overflow: hidden;
+    border: 1px solid #d8ded8 !important;
+    border-radius: 8px !important;
+    background: #edf3ed;
+}
+
+.leaflet-container {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+}
+
+/* =========================================================
+   EGG SIZE SELECTION
+========================================================= */
+
+.step-column:nth-child(2) .step-scroll > div:first-child {
+    margin-bottom: 8px;
+}
+
+.step-column:nth-child(2) .grid.grid-cols-4 {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+    margin-bottom: 7px !important;
+}
+
+.egg-btn {
+    min-width: 0;
+    min-height: 48px;
+    padding: 4px 2px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 1px solid #e0e2dd !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    color: #323a33 !important;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.egg-btn:hover {
+    border-color: #9eb5a1 !important;
+    background: #f7faf6 !important;
+}
+
+.egg-btn.selected {
+    border-color: var(--vdvc-green) !important;
+    background: #f0f6f0 !important;
+    color: var(--vdvc-green) !important;
+    box-shadow: inset 0 0 0 1px rgba(33, 79, 44, 0.08);
+}
+
+.egg-btn > span:first-child {
+    width: 17px !important;
+    height: 21px !important;
+    margin-bottom: 1px !important;
+    display: inline-block;
+    border: 1px solid #c5cbc5 !important;
+    border-radius: 50% 50% 45% 45% !important;
+    background: linear-gradient(145deg, #f8f8f4, #e6e8e1) !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.035) !important;
+}
+
+.egg-btn > span:nth-child(2) {
+    color: #303731 !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    line-height: 1.1 !important;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.egg-btn > span:nth-child(3) {
+    color: var(--vdvc-green) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+}
+
+/* =========================================================
+   QUANTITY AND METHOD
+========================================================= */
+
+#egg_type_select {
+    min-height: 29px !important;
+    padding: 5px 9px !important;
+    border-radius: 7px !important;
+}
+
+#quantity_input {
+    min-height: 30px !important;
+}
+
+#pickup_date_section,
+#delivery_schedule_info {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+#delivery_schedule_info {
+    padding: 9px !important;
+    border: 1px solid #d5e2d8 !important;
+    border-radius: 8px !important;
+    background: #f1f6f2 !important;
+}
+
+#delivery_schedule_info p {
+    line-height: 1.45;
+}
+
+#method_description {
+    width: 100%;
+    margin-top: 7px !important;
+    color: #7a847d;
+    font-size: 12px;
+}
+
+#btn-delivery,
+#btn-pickup {
+    min-height: 43px;
+    padding: 7px !important;
+    gap: 3px !important;
+    border: 1px solid #e0e2dd !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    color: #515b53 !important;
+}
+
+#btn-delivery i,
+#btn-pickup i {
+    font-size: 17px !important;
+}
+
+#btn-delivery span,
+#btn-pickup span {
+    font-size: 12px !important;
+}
+
+#btn-delivery:hover,
+#btn-pickup:hover {
+    border-color: #9eb5a1 !important;
+    background: #f7faf6 !important;
+}
+
+#btn-delivery.selected,
+#btn-pickup.selected,
+#btn-delivery.active,
+#btn-pickup.active {
+    border-color: var(--vdvc-green) !important;
+    background: #eff5ef !important;
+    color: var(--vdvc-green) !important;
+}
+
+.step-column:nth-child(2) hr {
+    margin-top: 10px !important;
+    margin-bottom: 9px !important;
+    border-color: #eceee9 !important;
+}
+
+.step-column:nth-child(2) button[onclick="addItemToBundle()"] {
+    width: 100%;
+    min-height: 31px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    padding: 7px 10px !important;
+    border: none !important;
+    border-radius: 7px !important;
+    background: #214f2c !important;
+    color: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+.step-column:nth-child(2) button[onclick="addItemToBundle()"]:hover {
+    background: #173b20 !important;
+}
+
+/* =========================================================
+   STEP 3 - ITEMS TABLE AND SUMMARY
+========================================================= */
+
+.step-column:nth-child(3) .step-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 15px !important;
+}
+
+.step-column:nth-child(3) .step-scroll > div:first-child h3 {
+    display: none;
+}
+
+.step-column:nth-child(3) .border.border-gray-100.rounded-lg {
+    border: 1px solid #eceee9 !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+.step-column:nth-child(3) table {
+    width: 100%;
+    table-layout: auto;
+    border-collapse: collapse;
+}
+
+.step-column:nth-child(3) table thead {
+    background: #f5f6f4 !important;
+}
+
+.step-column:nth-child(3) table th {
+    padding: 9px 8px !important;
+    color: #424a43 !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.2px;
+}
+
+.step-column:nth-child(3) table td {
+    padding: 9px 8px !important;
+    color: #39413b;
+    font-size: 12px !important;
+}
+
+#bundle_table_body tr td[colspan] {
+    padding: 14px 5px !important;
+    color: #747d76 !important;
+    font-size: 12px !important;
+}
+
+.step-column:nth-child(3) .divide-y.divide-gray-100.bg-gray-50 {
+    padding: 9px 10px !important;
+    background: #fafbf9 !important;
+    border-top: 1px solid #eff0ec !important;
+}
+
+.step-column:nth-child(3) .divide-y.divide-gray-100.bg-gray-50 > div {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 12px !important;
+}
+
+#summary_method,
+#summary_date,
+#summary_address_display {
+    max-width: 60%;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.step-column:nth-child(3) .flex.justify-between.p-4.bg-slate-50 {
+    padding: 10px 12px !important;
+    background: #f4f6f3 !important;
+    border-top: 1px solid #e5e8e2 !important;
+}
+
+.step-column:nth-child(3) .flex.justify-between.p-4.bg-slate-50 > span:first-child {
+    color: #313a33 !important;
+    font-size: 14px !important;
+}
+
+#total_display {
+    color: var(--vdvc-green) !important;
+    font-size: 19px !important;
+}
+
+/* =========================================================
+   RESERVATION TIMELINE
+========================================================= */
+
+.timeline-progress {
+    background: var(--vdvc-green) !important;
+}
+
+.step-column:nth-child(3) .step-scroll h3 {
+    margin-bottom: 12px !important;
+    color: #4b554d !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.step-column:nth-child(3) .relative.flex.items-center.justify-between {
+    padding-right: 9px !important;
+    padding-left: 9px !important;
+}
+
+.step-column:nth-child(3) .relative.flex.items-center.justify-between > div.absolute {
+    height: 2px !important;
+    background: #e1e4de !important;
+}
+
+.step-column:nth-child(3) #timeline_progress_bar {
+    height: 2px !important;
+    background: var(--vdvc-green) !important;
+}
+
+.step-column:nth-child(3) .relative.flex.items-center.justify-between > div.z-10 {
+    gap: 1px;
+}
+
+.step-column:nth-child(3) .relative.flex.items-center.justify-between > div.z-10 > div {
+    width: 15px !important;
+    height: 15px !important;
+    border-width: 3px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+.step-column:nth-child(3) .relative.flex.items-center.justify-between > div.z-10 > span {
+    font-size: 11px !important;
+    white-space: nowrap;
+}
+
+/* =========================================================
+   SUBMIT AND CANCEL BUTTONS
+========================================================= */
+
+button[name="submit_reservation"] {
+    min-height: 35px;
+    padding: 9px 12px !important;
+    border: none !important;
+    border-radius: 9px !important;
+    background: var(--vdvc-green) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(33, 79, 44, 0.15) !important;
+    font-size: 14px !important;
+}
+
+button[name="submit_reservation"]:hover {
+    background: #173b20 !important;
+}
+
+button[onclick="openCancellationModal()"] {
+    padding: 7px 4px !important;
+    color: #5d655f !important;
+    font-size: 13px !important;
+}
+
+button[onclick="openCancellationModal()"]:hover {
+    color: #b33c35 !important;
+}
+
+/* =========================================================
+   MY RESERVATIONS & STATUS
+   Retain this entire section and its PHP functionality
+========================================================= */
+
+.reservation-card .mt-6 {
+    width: calc(100% - 56px);
+    max-width: 1244px;
+    margin: 0 auto 30px !important;
+    overflow: hidden;
+    border: 1px solid #dedfd9 !important;
+    border-radius: 13px !important;
+    background: #ffffff !important;
+    box-shadow: 0 3px 12px rgba(46, 54, 43, 0.045) !important;
+}
+
+.reservation-card .mt-6 > .px-5.py-4 {
+    min-height: 65px;
+    padding: 14px 18px !important;
+    background: #ffffff;
+}
+
+.reservation-card .mt-6 h2 {
+    margin: 0;
+    color: #27332b !important;
+    font-size: 16px !important;
+    font-weight: 700;
+}
+
+.reservation-card .mt-6 .reservation-list {
+    padding: 14px !important;
+}
+
+.reservation-card .reservation-list > div.border {
+    padding: 14px !important;
+    border-color: #e4e6e0 !important;
+    border-radius: 9px !important;
+}
+
+.reservation-card .reservation-list > div.border:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.045);
+}
+
+.reservation-card .reservation-list .text-base {
+    font-size: 13px !important;
+    overflow-wrap: anywhere;
+}
+
+.reservation-card .reservation-list .text-xl {
+    font-size: 18px !important;
+}
+
+.reservation-card .mt-6 > .px-5.py-4.border-t,
+.reservation-card .mt-6 > .px-5.py-3 {
+    padding: 12px 16px !important;
+}
+
+.reservation-card .mt-6 a,
+.reservation-card .mt-6 button {
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.customer-footer {
+    width: 100%;
+
+    min-height: 68px;
+
+    background: #0d4828;
+
+    color: #ffffff;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 48px;
+}
+
+.customer-footer-inner {
+    width: 100%;
+
+    max-width: 1740px;
+
+    margin: 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.customer-footer-left {
+    display: flex;
+    align-items: center;
+
+    gap: 17px;
+}
+
+.customer-footer-logo {
+    width: 110px;
+
+    padding-right: 15px;
+
+    border-right: 1px solid rgba(255,255,255,0.22);
+}
+
+.customer-footer-logo img {
+    width: 100px;
+    height: auto;
+
+    display: block;
+}
+
+.customer-footer-tagline {
+    font-size: 11px;
+
+    color: rgba(255,255,255,0.9);
+}
+
+.customer-footer-right {
+    display: flex;
+    align-items: center;
+
+    gap: 18px;
+}
+
+.customer-footer-social {
+    display: flex;
+    align-items: center;
+
+    gap: 17px;
+}
+
+.customer-footer-social a {
+    color: #ffffff;
+
+    font-size: 13px;
+
+    text-decoration: none;
+
+    opacity: 0.95;
+
+    transition: opacity 0.2s ease;
+}
+
+.customer-footer-social a:hover {
+    opacity: 0.7;
+}
+
+.customer-footer-copy {
+    font-size: 11px;
+
+    color: rgba(255,255,255,0.82);
+}
+
+/* =========================================================
+   MODALS
+   Preserve existing modal functionality
+========================================================= */
+
+#success_modal,
+#cancellation_modal{
+    z-index: 2000;
+}
+
+#success_modal > div,
+#cancellation_modal > div,
+#logout_modal > div {
+    max-width: 420px;
+    border-radius: 14px;
+}
+
+/* =========================================================
+   RESPONSIVE: SMALL DESKTOP / TABLET
+========================================================= */
+
+@media screen and (max-width: 1100px) {
+    .customer-navbar {
+        padding: 0 24px;
+        gap: 12px;
+    }
+
+    .customer-navbar-logo {
+        width: 145px;
+    }
+
+    .customer-navbar-logo img {
+        width: 120px;
+    }
+
+    .customer-navbar-center {
+        gap: 23px;
+    }
+
+    .customer-navbar-right {
+        gap: 8px;
+    }
+
+    .customer-account-details {
+        min-width: 78px;
+    }
+
+    .reservation-card > .p-6 {
+        padding-right: 18px !important;
+        padding-left: 18px !important;
+    }
+
+    .reservation-grid {
+        gap: 13px !important;
+    }
+
+    .step-card {
+        padding: 13px;
+    }
+
+    .step-card h2 {
+        font-size: 12px !important;
+    }
+
+    .reservation-card .mt-6 {
+        width: calc(100% - 36px);
+    }
+}
+
+/* =========================================================
+   RESPONSIVE: TABLET
+========================================================= */
+
+@media screen and (max-width: 850px) {
+    .customer-navbar {
+        height: auto;
+        min-height: 68px;
+        padding: 10px 18px;
+        flex-wrap: wrap;
+        row-gap: 7px;
+    }
+
+    .customer-navbar-logo {
+        width: auto;
+    }
+
+    .customer-navbar-logo img {
+        width: 112px;
+    }
+
+    .customer-navbar-right {
+        margin-left: auto;
+    }
+
+    .customer-navbar-center {
+        order: 3;
+        width: 100%;
+        height: 38px;
+        gap: clamp(18px, 7vw, 45px);
+        margin: 0;
+        justify-content: center;
+    }
+
+    .customer-nav-link {
+        font-size: 12px;
+    }
+
+    .customer-nav-link.active::after {
+        bottom: 2px;
+    }
+
+    .reservation-hero {
+        min-height: 132px;
+        padding: 22px 28px;
+    }
+
+    .reservation-hero h1 {
+        font-size: 30px;
+    }
+
+    .reservation-hero p {
+        font-size: 13px;
+    }
+
+    .reservation-progress {
+        width: calc(100% - 32px);
+        padding: 12px 8px;
+    }
+
+    .reservation-progress-step {
+        gap: 7px;
+        font-size: 10px;
+    }
+
+    .reservation-progress-number {
+        width: 27px;
+        height: 27px;
+        min-width: 27px;
+    }
+
+    .reservation-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 14px !important;
+    }
+
+    .step-column:nth-child(3) {
+        grid-column: 1 / -1;
+    }
+
+    .step-card {
+        min-height: 0;
+        padding: 16px;
+    }
+
+    .step-column:nth-child(3) .step-scroll {
+        overflow: visible;
+    }
+
+    #map {
+        height: 180px !important;
+    }
+
+    .customer-footer {
+        padding: 14px 22px;
+    }
+
+    .customer-footer-inner {
+        gap: 14px;
+    }
+
+    .customer-footer-right {
+        gap: 12px;
+    }
+
+    .customer-footer-copy {
+        white-space: normal;
+        text-align: right;
+    }
+}
+
+/* =========================================================
+   RESPONSIVE: MOBILE
+========================================================= */
+
+@media screen and (max-width: 560px) {
+    .customer-navbar {
+        padding: 10px 13px 7px;
+        gap: 9px;
+    }
+
+    .customer-navbar-logo img {
+        width: 100px;
+    }
+
+    .customer-avatar {
+        width: 35px;
+        height: 35px;
+        min-width: 35px;
+        font-size: 14px;
+    }
+
+    .customer-account-details,
+    .customer-dropdown-icon {
+        display: none;
+    }
+
+    .customer-navbar-right {
+        gap: 5px;
+    }
+
+    .customer-navbar-center {
+        justify-content: space-between;
+        gap: 13px;
+        overflow-x: auto;
+    }
+
+    .customer-nav-link {
+        flex-shrink: 0;
+        font-size: 11px;
+    }
+
+    .customer-notification-dropdown {
+        position: fixed;
+        top: 112px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: none;
+    }
+
+    .reservation-hero {
+        min-height: 125px;
+        padding: 20px 17px;
+        background-position: center, 62% center;
+    }
+
+    .reservation-hero h1 {
+        max-width: 290px;
+        font-size: 26px;
+    }
+
+    .reservation-hero p {
+        max-width: 270px;
+        font-size: 12px;
+    }
+
+    .reservation-progress {
+        width: calc(100% - 22px);
+        min-height: 65px;
+        margin: 10px auto;
+        padding: 9px 5px;
+        border-radius: 11px;
+    }
+
+    .reservation-progress-step {
+        flex-direction: column;
+        gap: 4px;
+        text-align: center;
+        font-size: 9px;
+    }
+
+    .reservation-progress-number {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        font-size: 10px;
+    }
+
+    .reservation-progress-label {
+        max-width: 95px;
+    }
+
+    .reservation-card > .p-6 {
+        padding: 0 11px 20px !important;
+    }
+
+    .reservation-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 12px !important;
+    }
+
+    .step-column,
+    .step-column:nth-child(3) {
+        grid-column: auto;
+        width: 100%;
+    }
+
+    .step-card {
+        padding: 15px;
+        border-radius: 12px;
+    }
+
+    .step-card h2 {
+        font-size: 14px !important;
+    }
+
+    .step-1-content {
+        gap: 11px;
+    }
+
+    #map {
+        height: 190px !important;
+    }
+
+    .step-column:nth-child(2) .grid.grid-cols-4 {
+        gap: 7px !important;
+    }
+
+    .egg-btn {
+        min-height: 57px;
+    }
+
+    .egg-btn > span:nth-child(2),
+    .egg-btn > span:nth-child(3) {
+        font-size: 9px !important;
+    }
+
+    .reservation-card .mt-6 {
+        width: calc(100% - 22px);
+        margin-bottom: 20px !important;
+    }
+
+    .reservation-card .mt-6 > .px-5.py-4 {
+        padding: 13px !important;
+        gap: 10px;
+    }
+
+    .reservation-card .mt-6 h2 {
+        font-size: 14px !important;
+    }
+
+    .reservation-card .reservation-list {
+        padding: 10px !important;
+    }
+
+    .customer-footer {
+        padding: 16px;
+    }
+
+    .customer-footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .customer-footer-left {
+        width: 100%;
+    }
+
+    .customer-footer-logo {
+        width: 100px;
+    }
+
+    .customer-footer-logo img {
+        width: 85px;
+    }
+
+    .customer-footer-tagline {
+        font-size: 10px;
+    }
+
+    .customer-footer-right {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .customer-footer-copy {
+        font-size: 8px;
+        text-align: right;
+    }
+}
+
+/* =========================================================
+   ACCESSIBILITY AND HIDDEN ELEMENTS
+========================================================= */
+
+.hidden {
+    display: none !important;
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid #6f9876;
+    outline-offset: 2px;
+}
+
 </style>
 <body class="font-sans text-gray-700 antialiased min-h-screen">
 
-<?php include('customer_panel.php'); ?>
+
+<!-- =========================================================
+     CUSTOMER NAVIGATION
+========================================================= -->
+
+<header class="customer-navbar">
+
+    <div class="customer-navbar-logo">
+        <a href="customer_dashboard.php">
+            <img src="vdvclogoo.png" alt="VDVC Egg Farm">
+        </a>
+    </div>
+
+    <nav class="customer-navbar-center">
+        <a href="customer_dashboard.php" class="customer-nav-link">
+            Home
+        </a>
+
+        <a href="customer_reservation.php"
+           class="customer-nav-link active">
+            Reservation
+        </a>
+
+        <a href="customer_history.php" class="customer-nav-link">
+            History
+        </a>
+
+        <a href="customer_profile.php" class="customer-nav-link">
+            Profile
+        </a>
+    </nav>
+
+    <div class="customer-navbar-right">
+
+        <div class="customer-notification-wrapper">
+            <button type="button"
+                    class="customer-top-notification"
+                    title="Notifications"
+                    onclick="event.stopPropagation(); toggleCustomerNotificationDropdown();">
+                <i class="fa-regular fa-bell"></i>
+
+                <?php if ($unread_notifications > 0): ?>
+                    <span class="customer-notification-badge">
+                        <?php
+                        echo $unread_notifications > 99
+                            ? '99+'
+                            : $unread_notifications;
+                        ?>
+                    </span>
+                <?php endif; ?>
+            </button>
+
+            <div class="customer-notification-dropdown hidden"
+                 id="customerNotificationDropdown">
+
+                <div class="customer-notification-dropdown-header">
+                    <div class="customer-panel-title-group">
+                        <div class="customer-panel-title-icon">
+                            <i class="fa-solid fa-bell"></i>
+                        </div>
+
+                        <div class="customer-dashboard-panel-title">
+                            Notifications
+                        </div>
+                    </div>
+
+                    <a href="javascript:void(0)"
+                       class="customer-mark-all-link"
+                       onclick="markAllCustomerAsRead(event)">
+                        Mark All as Read
+                    </a>
+                </div>
+
+                <div class="customer-notification-list"
+                     id="customerNotificationList">
+                </div>
+            </div>
+        </div>
+
+   
+<!-- CUSTOMER ACCOUNT WITH DROPDOWN -->
+
+<div class="customer-account-wrapper">
+
+ <div class="customer-account-link">
+
+        <div class="customer-avatar">
+            <i class="fa-solid fa-user"></i>
+        </div>
+
+        <div class="customer-account-details">
+
+            <span class="customer-top-name">
+                <?php
+                echo htmlspecialchars(
+                    $customer_name,
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
+                ?>
+            </span>
+
+            <div class="customer-date-time">
+
+                <span
+                    class="customer-date"
+                    id="customer-live-date"
+                >
+                    <?php echo date('F j, Y'); ?>
+                </span>
+
+                <span
+                    class="customer-time"
+                    id="customer-live-time"
+                >
+                    <?php echo date('h:i:s A'); ?>
+                </span>
+
+            </div>
+
+        </div>
+
+                </div>
+
+    <!-- DROPDOWN ARROW -->
+
+    <button
+        type="button"
+        class="customer-account-toggle"
+        id="customerAccountToggle"
+        aria-label="Open account menu"
+        aria-expanded="false"
+        aria-controls="customerAccountDropdown"
+        onclick="toggleCustomerAccountDropdown(event)"
+    >
+        <i class="fa-solid fa-chevron-down"></i>
+    </button>
+
+    <!-- ACCOUNT DROPDOWN -->
+
+    <div
+        class="customer-account-dropdown hidden"
+        id="customerAccountDropdown"
+    >
+
+        <button
+            type="button"
+            class="customer-logout-option"
+            onclick="openCustomerLogoutModal()"
+        >
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span>Logout</span>
+        </button>
+
+    </div>
+
+</div>
+
+    </div>
+</header>
+
 
 <div class="main-content">
       
@@ -1481,214 +2639,56 @@ body {
 
         <div class="reservation-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 
-            <!-- =====================================================
-                 RESERVATION HEADER
-                 ===================================================== -->
- <!-- =====================================================
-     CUSTOMER RESERVATION TOPBAR
+          
+<!-- =====================================================
+     CUSTOMER DASHBOARD TOPBAR
 ===================================================== -->
 
-<div class="customer-dashboard-topbar">
+<!-- =========================================================
+     RESERVATION HERO BANNER
+========================================================= -->
 
-    <!-- PAGE TITLE -->
-    <h1 class="customer-dashboard-page-title">
-        📝 Customer Reservation
-    </h1>
+<section class="reservation-hero">
+    <div class="reservation-hero-content">
+        <h1>
+            <i class="fa-solid fa-leaf"></i>
+            Reserve Fresh Eggs
+        </h1>
 
-
-    <!-- HEADER RIGHT -->
-    <div class="customer-dashboard-topbar-right">
-
-
-        <!-- NOTIFICATION -->
-        <div class="customer-notification-container">
-
-            <button
-                type="button"
-                class="customer-top-notification"
-                onclick="toggleNotifications(event)"
-                title="Notifications"
-            >
-
-                <i class="fa-regular fa-bell"></i>
-
-                <?php if ($unread_count > 0) { ?>
-
-                    <span class="customer-notification-badge">
-                        <?php echo $unread_count; ?>
-                    </span>
-
-                <?php } ?>
-
-            </button>
+        <p>
+            Choose your preferred size and delivery method.<br>
+            We'll take care of the rest!
+        </p>
+    </div>
+</section>
 
 
-            <!-- KEEP YOUR EXISTING NOTIFICATION DROPDOWN -->
-            <div
-                id="notification_dropdown"
-                class="notification-dropdown-custom hidden"
-            >
+<div class="reservation-progress">
 
-                <div class="notification-dropdown-header-custom">
-
-                    <strong>
-                        Notifications
-                    </strong>
-
-                    <?php if ($unread_count > 0) { ?>
-
-                        <span>
-                            <?php echo $unread_count; ?> unread
-                        </span>
-
-                    <?php } ?>
-
-                </div>
-
-
-                <div class="notification-list-custom">
-
-                    <?php if (count($notifications) > 0) { ?>
-
-                        <?php foreach ($notifications as $notification) { ?>
-
-                            <div class="notification-item-custom">
-
-                                <div class="notification-item-icon-custom">
-
-                                    <i class="fa-regular fa-bell"></i>
-
-                                </div>
-
-
-                                <div class="notification-item-content-custom">
-
-                                    <strong>
-                                        <?php
-                                        echo htmlspecialchars(
-                                            $notification['title']
-                                        );
-                                        ?>
-                                    </strong>
-
-                                    <span>
-                                        <?php
-                                        echo htmlspecialchars(
-                                            $notification['message']
-                                        );
-                                        ?>
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-                        <?php } ?>
-
-                    <?php } else { ?>
-
-                        <div class="notification-empty-custom">
-
-                            <i class="fa-regular fa-circle-check"></i>
-
-                            <strong>
-                                No new notifications
-                            </strong>
-
-                            <span>
-                                You're all caught up.
-                            </span>
-
-                        </div>
-
-                    <?php } ?>
-
-                </div>
-
-            </div>
-
+    <div class="reservation-progress-step">
+        <div class="reservation-progress-number">1</div>
+        <div class="reservation-progress-label">
+            Contact &amp; Delivery<br>Information
         </div>
+    </div>
 
+    <div class="reservation-progress-step">
+        <div class="reservation-progress-number">2</div>
+        <div class="reservation-progress-label">
+            Select Egg Sizes<br>&amp; Quantity
+        </div>
+    </div>
 
-        <!-- DIVIDER -->
-        <div class="customer-topbar-divider"></div>
-
-
-        <!-- CUSTOMER PROFILE -->
-        <a
-            href="customer_profile.php"
-            class="customer-top-profile"
-        >
-
-            <!-- AVATAR -->
-            <div class="customer-avatar">
-
-                <i class="fa-regular fa-user"></i>
-
-            </div>
-
-
-            <!-- ACCOUNT DETAILS -->
-            <div class="customer-account-details">
-
-                <span class="customer-top-name">
-
-                    <?php
-
-                    $reservation_name_parts =
-                        explode(
-                            " ",
-                            trim($customer_name)
-                        );
-
-                    echo htmlspecialchars(
-                        $reservation_name_parts[0]
-                    );
-
-                    ?>
-
-                </span>
-
-
-              
-
-
-                <div class="customer-date-time">
-
-                  <span class="customer-date">
-
-    <?php
-    echo date("F d, Y");
-    ?>
-
-</span>
-
-<span
-    class="customer-time"
-    id="live-time"
->
-    <?php
-    echo date("g:i A");
-    ?>
-</span>
-
-                </div>
-
-            </div>
-
-
-            <!-- DROPDOWN ICON -->
-            <div class="customer-dropdown-icon">
-
-                <i class="fa-solid fa-chevron-down"></i>
-
-            </div>
-
-        </a>
-
+    <div class="reservation-progress-step">
+        <div class="reservation-progress-number">3</div>
+        <div class="reservation-progress-label">
+            Review &amp; Submit
+        </div>
     </div>
 
 </div>
+
+
 
 
 
@@ -1709,7 +2709,7 @@ body {
             Step 1: Contact & Delivery Information
         </h2>
 <!-- Reservation ID -->
-<div class="border border-blue-200 bg-blue-50/40 rounded-lg px-4 py-3 mb-4">
+<div class="rounded-lg px-4 py-3 mb-4" style="border: 1px solid #b8cbbd; background: #f1f6f2;">
 
     <div class="flex items-center justify-between">
 
@@ -1718,7 +2718,7 @@ body {
                 Reservation ID
             </label>
 
-            <div class="text-lg font-extrabold text-blue-600 tracking-wide">
+           <div class="text-lg font-extrabold tracking-wide" style="color: #214f2c;">
                 <?= htmlspecialchars($reservation_code); ?>
             </div>
 
@@ -1730,7 +2730,7 @@ body {
         <button
             type="button"
             onclick="copyReservationCode()"
-            class="w-8 h-8 rounded-lg hover:bg-blue-100 text-gray-500 hover:text-blue-600 transition"
+           class="copy-reservation-btn w-8 h-8 rounded-lg text-gray-500 transition"
             title="Copy Reservation ID"
         >
             <i class="fa-regular fa-copy"></i>
@@ -1772,7 +2772,7 @@ body {
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Delivery Address</label>
-                                <input type="text" id="delivery_address_input" name="delivery_address" placeholder="Type location..." required oninput="handleAddressTyping(this.value)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 mb-2">
+                                <input type="text" id="delivery_address_input" name="delivery_address" placeholder="Type location..." required oninput="handleAddressTyping(this.value); updateReservationProgress();" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 mb-2">
                                 <div class="border border-gray-200 rounded-lg overflow-hidden relative h-48 bg-sky-50 z-10" id="map"></div>
                             </div>
                         </div>
@@ -1795,7 +2795,7 @@ body {
                                         <button type="button" data-egg="<?= $size ?>" onclick="setEgg('<?= $size ?>')" class="egg-btn flex flex-col items-center p-2 border rounded-lg transition-all border-gray-200 hover:bg-gray-50">
                                             <span class="w-5 h-7 bg-slate-100 border border-slate-400 rounded-full inline-block shadow-inner mb-1"></span>
                                             <span class="text-[9px] text-gray-600 font-medium text-center leading-none mb-1"><?= $size ?></span>
-                                            <span class="text-[9px] text-blue-600 font-bold">₱<?= $price ?></span>
+                                            <span class="text-[9px] font-bold" style="color: #214f2c;">₱<?= $price ?></span>
                                         </button>
                                     <?php endforeach; ?>
                                 </div>
@@ -1812,12 +2812,7 @@ body {
                                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Quantity</label>
                                 <input type="number" id="quantity_input" min="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
                             </div>
-
-                            
-
-                          
-
-                          <!-- =====================================================
+<!-- =====================================================
      PICKUP DATE
      Only visible when Pickup is selected
      ===================================================== -->
@@ -1850,20 +2845,21 @@ body {
 
 <div
     id="delivery_schedule_info"
-    class="hidden border border-blue-100 bg-blue-50 rounded-lg p-3"
+    class="hidden rounded-lg p-3"
+    style="border: 1px solid #d5e2d8; background: #f1f6f2;"
 >
 
     <div class="flex items-start gap-2">
 
-        <i class="fa-solid fa-truck text-blue-500 mt-0.5"></i>
+       <i class="fa-solid fa-truck mt-0.5" style="color: #214f2c;"></i>
 
         <div>
 
-            <p class="text-xs font-bold text-blue-700">
+           <p class="text-xs font-bold" style="color: #214f2c;">
                 Delivery Schedule
             </p>
 
-            <p class="text-[10px] text-blue-600 mt-1 leading-relaxed">
+          <p class="text-[10px] mt-1 leading-relaxed" style="color: #214f2c;">
                 No date is required at this time.
                 The farm manager will assign the delivery date
                 based on availability.
@@ -1874,18 +2870,17 @@ body {
     </div>
 
 </div>
-<div>
+                            <div>
 
     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
         Delivery Method
     </label>
 
-    <input
-        type="hidden"
-        name="delivery_method"
-        id="delivery_method_input"
-        required
-    >
+  <input
+    type="hidden"
+    name="delivery_method"
+    id="delivery_method_input"
+>
 
     <div class="grid grid-cols-2 gap-4">
 
@@ -1939,6 +2934,8 @@ body {
     </button>
 
 </div>
+
+
                         </div>
                     </div>
 </div>
@@ -1976,12 +2973,12 @@ body {
                                     
                                     <div class="divide-y divide-gray-100 bg-gray-50 p-3 text-xs space-y-2 border-t border-gray-100">
                                         <div class="flex justify-between"><span class="text-gray-500">Method:</span><span id="summary_method" class="font-semibold text-gray-700">None selected</span></div>
-                                        <div class="flex justify-between"><span class="text-gray-500">Date:</span><span id="summary_date" class="font-semibold text-blue-600">None selected</span></div>
+                                        <div class="flex justify-between"><span class="text-gray-500">Date:</span><span id="summary_date" class="font-semibold" style="color: #214f2c;">None selected</span></div>
                                         <div class="flex justify-between"><span class="text-gray-500">Address:</span><span id="summary_address_display" class="font-semibold text-gray-700 max-w-[180px] truncate text-right">None</span></div>
                                     </div>
                                     <div class="flex justify-between p-4 bg-slate-50 items-center border-t border-gray-200">
                                         <span class="font-bold text-slate-800">Grand Total:</span>
-                                        <span class="text-xl font-extrabold text-blue-600">₱<span id="total_display">0</span></span>
+                                       <span class="text-xl font-extrabold" style="color: #214f2c;">₱<span id="total_display">0</span></span>
                                     </div>
                                 </div>
                             </div>
@@ -1990,24 +2987,29 @@ body {
                                 <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Reservation Timeline</h3>
                                 <div class="relative flex items-center justify-between px-4">
                                     <div class="absolute left-4 right-4 h-1 bg-gray-200 top-1/2 -translate-y-1/2 z-0"></div>
-                                    <div id="timeline_progress_bar" class="absolute left-4 h-1 bg-blue-500 top-1/2 -translate-y-1/2 z-0 transition-all duration-500 <?= $is_submitted ? 'w-full' : 'w-0'; ?>"></div>
+                                    <div id="timeline_progress_bar" class="timeline-progress absolute left-4 h-1 top-1/2 -translate-y-1/2 z-0 transition-all duration-500 <?= $is_submitted ? 'w-full' : 'w-0'; ?>"></div>
                                     <div class="z-10 flex flex-col items-center">
-                                        <div class="w-5 h-5 rounded-full bg-blue-600 border-4 border-white shadow"></div>
-                                        <span class="text-xs font-semibold text-blue-600 mt-1">Draft</span>
+                                      <div class="w-5 h-5 rounded-full border-4 border-white shadow" style="background: #214f2c;"></div>
+                                       <span class="text-xs font-semibold mt-1" style="color: #214f2c;">Draft</span>
                                     </div>
                                     <div class="z-10 flex flex-col items-center">
-                                        <div class="w-5 h-5 rounded-full border-4 border-white shadow bg-gray-300 <?= $is_submitted ? 'bg-blue-600' : 'bg-gray-300'; ?>"></div>
-                                        <span class="text-xs mt-1 <?= $is_submitted ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'; ?>">Processing</span>
+                                        <div class="w-5 h-5 rounded-full border-4 border-white shadow bg-gray-300 <?= $is_submitted ? 'style="background: #214f2c;"' : 'bg-gray-300'; ?>"></div>
+                                        <span class="text-xs mt-1 <?= $is_submitted ? 'style="color: #214f2c;" font-semibold' : 'text-gray-400 font-medium'; ?>">Processing</span>
                                     </div>
                                     <div class="z-10 flex flex-col items-center">
-                                        <div class="w-5 h-5 rounded-full border-4 border-white shadow bg-gray-300 <?= $is_submitted ? 'bg-blue-600' : 'bg-gray-300'; ?>"></div>
-                                        <span class="text-xs mt-1 <?= $is_submitted ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'; ?>">Submitted</span>
+                                        <div class="w-5 h-5 rounded-full border-4 border-white shadow bg-gray-300 <?= $is_submitted ? 'style="background: #214f2c;"' : 'bg-gray-300'; ?>"></div>
+                                        <span class="text-xs mt-1 <?= $is_submitted ? 'style="color: #214f2c;" font-semibold' : 'text-gray-400 font-medium'; ?>">Submitted</span>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="space-y-3 pt-2">
-                                <button type="submit" name="submit_reservation" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center space-x-2">
+                                <button
+    type="submit"
+    name="submit_reservation"
+    class="w-full text-white font-medium py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center space-x-2"
+    style="background-color: #214f2c;"
+>
                                     <i class="fa-regular fa-circle-check"></i><span>Submit Reservation</span>
                                 </button>
                                 <button type="button" onclick="openCancellationModal()" class="w-full text-center text-sm text-gray-500 hover:text-red-500 transition font-medium py-1 block">
@@ -2052,7 +3054,7 @@ body {
 
         <?php if (!empty($my_reservations)): ?>
 
-            <?php foreach ($my_reservations as $reservation): ?>
+      <?php foreach ($paginated_reservations as $reservation): ?>
 
                 <?php
 
@@ -2092,7 +3094,7 @@ body {
 
                             <div class="flex items-center gap-2 mb-2">
 
-                                <span class="text-base font-extrabold text-blue-600">
+                              <span class="text-base font-extrabold" style="color: #214f2c;">
                                     <?= htmlspecialchars($reservation['reservation_code']); ?>
                                 </span>
 
@@ -2197,7 +3199,8 @@ body {
 
                                 <?php foreach ($reservation['items'] as $item): ?>
 
-                                    <span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-semibold">
+                                 <span class="px-2.5 py-1 rounded-md text-xs font-semibold"
+      style="background: #f1f6f2; color: #214f2c;">
 
                                         <?= htmlspecialchars($item['egg_type']); ?>
                                         x <?= intval($item['quantity']); ?>
@@ -2228,7 +3231,7 @@ body {
                                 Total Price
                             </p>
 
-                            <p class="text-xl font-extrabold text-blue-600">
+            <p class="text-xl font-extrabold" style="color: #214f2c;">
 
                                 ₱<?= number_format(
                                     $reservation['total_price'],
@@ -2306,14 +3309,114 @@ body {
 
         <?php endif; ?>
 
-    </div>
+       </div>
+
+
+    <!-- =====================================================
+         PAGINATION
+         ===================================================== -->
+
+    <?php if ($total_pages > 1): ?>
+
+        <div
+            class="px-5 py-4 border-t border-gray-200 flex items-center justify-between"
+            style="background: #ffffff;"
+        >
+
+            <!-- Previous -->
+            <div>
+
+                <?php if ($current_page > 1): ?>
+
+                    <a
+                        href="?page=<?= $current_page - 1; ?>"
+                        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition"
+                    >
+                        <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                        Previous
+                    </a>
+
+                <?php else: ?>
+
+                    <span
+                        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 text-xs font-semibold text-gray-300 cursor-not-allowed"
+                    >
+                        <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                        Previous
+                    </span>
+
+                <?php endif; ?>
+
+            </div>
+
+
+            <!-- Page Numbers -->
+            <div class="flex items-center gap-1">
+
+                <?php for ($page = 1; $page <= $total_pages; $page++): ?>
+
+                    <?php if ($page == $current_page): ?>
+
+                        <span
+                            class="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold text-white"
+                            style="background: #214f2c;"
+                        >
+                            <?= $page; ?>
+                        </span>
+
+                    <?php else: ?>
+
+                        <a
+                            href="?page=<?= $page; ?>"
+                            class="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition"
+                        >
+                            <?= $page; ?>
+                        </a>
+
+                    <?php endif; ?>
+
+                <?php endfor; ?>
+
+            </div>
+
+
+            <!-- Next -->
+            <div>
+
+                <?php if ($current_page < $total_pages): ?>
+
+                    <a
+                        href="?page=<?= $current_page + 1; ?>"
+                        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition"
+                    >
+                        Next
+                        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </a>
+
+                <?php else: ?>
+
+                    <span
+                        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 text-xs font-semibold text-gray-300 cursor-not-allowed"
+                    >
+                        Next
+                        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </span>
+
+                <?php endif; ?>
+
+            </div>
+
+        </div>
+
+    <?php endif; ?>
 
 
     <!-- Information Footer -->
 
     <?php if (!empty($my_reservations)): ?>
 
-        <div class="px-5 py-3 bg-blue-50 border-t border-blue-100 text-xs text-blue-700">
+       <div class="px-5 py-3 text-xs"
+     style="background: #f1f6f2; border-top: 1px solid #d5e2d8; color: #214f2c;">
 
             <i class="fa-solid fa-circle-info mr-2"></i>
 
@@ -2346,162 +3449,602 @@ body {
         </div>
     </div>
 
-    <!-- Interactive Logout Confirmation Modal -->
-<div id="logout_modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-    <div class="bg-white rounded-xl shadow-2xl border border-gray-100 max-w-sm w-full p-6 space-y-4 transform transition-all">
-        <div class="flex items-center space-x-3 text-red-500">
-            <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600">
-                <i class="fa-solid fa-right-from-bracket text-base"></i>
-            </div>
-            <h3 class="text-lg font-bold text-slate-800">Confirm Logout</h3>
+
+<!-- LOGOUT CONFIRMATION MODAL -->
+
+<div
+    class="customer-logout-overlay hidden"
+    id="customerLogoutModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="customerLogoutTitle"
+    aria-describedby="customerLogoutMessage"
+>
+    <div class="customer-logout-modal">
+
+        <div class="customer-logout-icon">
+            <i class="fa-solid fa-right-from-bracket"></i>
         </div>
-        <p class="text-sm text-gray-500">Are you sure you want to end your session? You will need to log back in to manage reservations.</p>
-        <div class="flex justify-end space-x-3 pt-2">
-            <button type="button" onclick="closeLogoutModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
-                Stay Logged In
+
+        <h2 id="customerLogoutTitle">Confirm Logout</h2>
+
+        <p id="customerLogoutMessage">
+            Are you sure you want to logout?
+        </p>
+
+        <div class="customer-logout-actions">
+
+            <button
+                type="button"
+                class="customer-logout-cancel"
+                onclick="closeCustomerLogoutModal()"
+            >
+                Cancel
             </button>
-            <a href="logout.php" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold text-center transition">
-                Yes, Logout
-            </a>
+
+        
+<form method="POST" action="customer_dashboard.php">
+    <input type="hidden" name="customer_logout" value="1">
+
+    <input
+        type="hidden"
+        name="logout_token"
+        value="<?php
+            echo isset($_SESSION['customer_logout_token'])
+                ? htmlspecialchars($_SESSION['customer_logout_token'], ENT_QUOTES, 'UTF-8')
+                : '';
+        ?>"
+    >
+
+    <button type="submit" class="customer-logout-confirm">
+        Yes, Logout
+    </button>
+</form>
+
+
         </div>
+
     </div>
 </div>
 
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer class="customer-footer">
+
+
+    <div class="customer-footer-inner">
+
+
+        <!-- LEFT -->
+
+        <div class="customer-footer-left">
+
+
+            <div class="customer-footer-logo">
+
+                <img
+                    src="vdvclogoo.png"
+                    alt="VDVC Egg Farm"
+                >
+
+            </div>
+
+
+            <div class="customer-footer-tagline">
+
+                Fresh Eggs. Trusted Farm. Better for You.
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- RIGHT -->
+
+        <div class="customer-footer-right">
+
+
+            <div class="customer-footer-social">
+
+                <a
+                    href="#"
+                    aria-label="Facebook"
+                >
+                    <i class="fa-brands fa-facebook-f"></i>
+                </a>
+
+
+                <a
+                    href="#"
+                    aria-label="Instagram"
+                >
+                    <i class="fa-brands fa-instagram"></i>
+                </a>
+
+
+                <a
+                    href="#"
+                    aria-label="YouTube"
+                >
+                    <i class="fa-brands fa-youtube"></i>
+                </a>
+
+            </div>
+
+
+            <div class="customer-footer-copy">
+
+                © 2026 VDVC Egg Farm.
+                All rights reserved.
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+</footer>
+
     <script>
   
-/* =========================================================
-   CUSTOMER HEADER LIVE TIME
-========================================================= */
-
-function updateCustomerLiveTime() {
-
-    var timeElement =
-        document.getElementById('customer_live_time');
-
-    if (!timeElement) {
-        return;
-    }
+function updateCustomerDateTime() {
 
     var now = new Date();
 
-    var hours = now.getHours();
-    var minutes = now.getMinutes();
-    var seconds = now.getSeconds();
+    var options = {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+    };
 
-    var ampm = hours >= 12 ? 'PM' : 'AM';
+    var dateText = now.toLocaleDateString(
+        'en-US',
+        options
+    );
 
-    hours = hours % 12;
+    var timeText = now.toLocaleTimeString(
+        'en-US',
+        {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        }
+    );
 
-    hours = hours
-        ? hours
-        : 12;
+    var dateElement = document.getElementById(
+        'customer-live-date'
+    );
 
-    hours = String(hours).padStart(2, '0');
-    minutes = String(minutes).padStart(2, '0');
-    seconds = String(seconds).padStart(2, '0');
+    var timeElement = document.getElementById(
+        'customer-live-time'
+    );
 
-    timeElement.innerText =
-        hours + ':' +
-        minutes + ':' +
-        seconds + ' ' +
-        ampm;
+    if (dateElement) {
+        dateElement.textContent = dateText;
+    }
+
+    if (timeElement) {
+        timeElement.textContent = timeText;
+    }
 }
 
-
-updateCustomerLiveTime();
+updateCustomerDateTime();
 
 setInterval(
-    updateCustomerLiveTime,
+    updateCustomerDateTime,
     1000
 );
 
 
-        function openLogoutModal() {
-    document.getElementById('logout_modal').classList.remove('hidden');
+
+       
+/* =========================================================
+   CUSTOMER ACCOUNT DROPDOWN
+========================================================= */
+
+function toggleCustomerAccountDropdown(event) {
+    event.stopPropagation();
+
+    var dropdown = document.getElementById(
+        'customerAccountDropdown'
+    );
+
+    var toggle = document.getElementById(
+        'customerAccountToggle'
+    );
+
+    if (!dropdown || !toggle) {
+        return;
+    }
+
+    var isOpen = !dropdown.classList.contains('hidden');
+
+    if (isOpen) {
+        dropdown.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+    } else {
+        dropdown.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+    }
 }
 
-function closeLogoutModal() {
-    document.getElementById('logout_modal').classList.add('hidden');
+function closeCustomerAccountDropdown() {
+    var dropdown = document.getElementById(
+        'customerAccountDropdown'
+    );
+
+    var toggle = document.getElementById(
+        'customerAccountToggle'
+    );
+
+    if (dropdown) {
+        dropdown.classList.add('hidden');
+    }
+
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+    }
 }
 
-// Optional: Close the modal if the user clicks anywhere outside of the white modal container box
-window.addEventListener('click', function(event) {
-    const logoutModal = document.getElementById('logout_modal');
-    if (event.target === logoutModal) {
-        closeLogoutModal();
+/* =========================================================
+   LOGOUT CONFIRMATION MODAL
+========================================================= */
+
+function openCustomerLogoutModal() {
+    closeCustomerAccountDropdown();
+
+    var modal = document.getElementById(
+        'customerLogoutModal'
+    );
+
+    if (modal) {
+        modal.classList.remove('hidden');
+
+        var cancelButton = modal.querySelector(
+            '.customer-logout-cancel'
+        );
+
+        if (cancelButton) {
+            cancelButton.focus();
+        }
+    }
+}
+
+function closeCustomerLogoutModal() {
+    var modal = document.getElementById(
+        'customerLogoutModal'
+    );
+
+    if (modal) {
+        modal.classList.add('hidden');
+
+        var toggle = document.getElementById(
+            'customerAccountToggle'
+        );
+
+        if (toggle) {
+            toggle.focus();
+        }
+    }
+}
+
+/* =========================================================
+   CLOSE ACCOUNT DROPDOWN WHEN CLICKING OUTSIDE
+========================================================= */
+
+document.addEventListener('click', function(event) {
+    var accountWrapper = document.querySelector(
+        '.customer-account-wrapper'
+    );
+
+    if (
+        accountWrapper &&
+        !accountWrapper.contains(event.target)
+    ) {
+        closeCustomerAccountDropdown();
+    }
+
+    var modal = document.getElementById(
+        'customerLogoutModal'
+    );
+
+    if (modal && event.target === modal) {
+        closeCustomerLogoutModal();
+    }
+});
+
+/* =========================================================
+   CLOSE DROPDOWN AND MODAL WITH ESCAPE
+========================================================= */
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeCustomerLogoutModal();
+        closeCustomerAccountDropdown();
     }
 });
 
 
-        const priceList = { 'Extra Small': 140, 'Small': 150, 'Medium': 175, 'Large': 195, 'Extra Large': 235, 'Jumbo': 255, 'Super Jumbo': 270, 'Double Yolk': 320 };
-        let bundleItems = [];
-        let addressLookupTimeout = null;
+
+       
+const priceList = {
+    'Extra Small': 140,
+    'Small': 150,
+    'Medium': 175,
+    'Large': 195,
+    'Extra Large': 235,
+    'Jumbo': 255,
+    'Super Jumbo': 270,
+    'Double Yolk': 320
+};
+
+let bundleItems = [];
+let addressLookupTimeout = null;
+
+/* Tracks whether a location was selected or successfully located on the map */
+let mapLocationSelected = false;
+
+
+/* =========================================================
+   RESERVATION PROGRESS STATUS
+========================================================= */
+
+function setReservationStepCompleted(stepNumber, isComplete) {
+
+    var steps = document.querySelectorAll(
+        '.reservation-progress-step'
+    );
+
+    var step = steps[stepNumber - 1];
+
+    if (!step) {
+        return;
+    }
+
+    if (isComplete) {
+        step.classList.add('completed');
+    } else {
+        step.classList.remove('completed');
+    }
+}
+
+
+
+
+function updateReservationProgress() {
+    var name = document.getElementById('cust_name_input').value.trim();
+    var contact = document.getElementById('contact_input').value.trim();
+    var address = document.getElementById('delivery_address_input').value.trim();
+    var method = document.getElementById('delivery_method_input').value.trim().toLowerCase();
+    var pickupDate = document.getElementById('reservation_date_input').value;
+
+    var validName = name.length > 0;
+    var validContact = /^09[0-9]{9}$/.test(contact);
+    var validAddress = address.length > 0;
+    var validMethod = method === 'delivery' || method === 'pickup';
+    var validPickupDate = method !== 'pickup' || pickupDate !== '';
+
+    var step1Complete =
+        validName &&
+        validContact &&
+        validAddress &&
+        validMethod &&
+        validPickupDate;
+
+    var step2Complete = bundleItems.length > 0;
+    var step3Complete = step1Complete && step2Complete;
+
+    setReservationStepCompleted(1, step1Complete);
+    setReservationStepCompleted(2, step2Complete);
+    setReservationStepCompleted(3, step3Complete);
+}
+
+
+
 
         // Leaflet Setup
         const map = L.map('map').setView([14.5995, 120.9842], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const marker = L.marker([14.5995, 120.9842], { draggable: true }).addTo(map);
 
-        function reverseGeocode(lat, lng) {
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                .then(res => res.json()).then(data => {
-                    if (data && data.display_name) {
-                        document.getElementById('delivery_address_input').value = data.display_name;
-                        document.getElementById('summary_address_display').innerText = data.display_name;
-                    }
-                });
+    
+function reverseGeocode(lat, lng) {
+    fetch(
+        'https://nominatim.openstreetmap.org/reverse?format=json&lat=' +
+        encodeURIComponent(lat) +
+        '&lon=' +
+        encodeURIComponent(lng)
+    )
+    .then(function(response) {
+        if (!response.ok) {
+            throw new Error('Unable to find the address.');
         }
-        map.on('click', e => { marker.setLatLng(e.latlng); reverseGeocode(e.latlng.lat, e.latlng.lng); });
-        marker.on('dragend', () => { reverseGeocode(marker.getLatLng().lat, marker.getLatLng().lng); });
 
-        function handleAddressTyping(val) {
-            document.getElementById('summary_address_display').innerText = val || 'None';
-            clearTimeout(addressLookupTimeout);
-            if (!val.trim()) return;
-            addressLookupTimeout = setTimeout(() => {
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=1`)
-                    .then(res => res.json()).then(data => {
-                        if (data.length > 0) {
-                            map.setView([data[0].lat, data[0].lon], 16);
-                            marker.setLatLng([data[0].lat, data[0].lon]);
-                        }
-                    });
-            }, 600);
+        return response.json();
+    })
+    .then(function(data) {
+        if (data && data.display_name) {
+            document.getElementById('delivery_address_input').value =
+                data.display_name;
+
+            document.getElementById('summary_address_display').innerText =
+                data.display_name;
+
+            mapLocationSelected = true;
+
+            updateReservationProgress();
+        } else {
+            mapLocationSelected = false;
+            updateReservationProgress();
+
+            alert('Unable to identify this location. Please select another point on the map.');
         }
+    })
+    .catch(function(error) {
+        mapLocationSelected = false;
+        updateReservationProgress();
+
+        console.error('Reverse geocoding error:', error);
+        alert('Unable to get the address. Please try selecting the location again.');
+    });
+}
+
+
+// Kapag nag-click ang user sa map
+map.on('click', function(e) {
+    marker.setLatLng(e.latlng);
+
+    mapLocationSelected = false;
+    updateReservationProgress();
+
+    reverseGeocode(e.latlng.lat, e.latlng.lng);
+});
+
+
+// Kapag ginalaw ng user ang marker
+marker.on('dragend', function() {
+    var position = marker.getLatLng();
+
+    mapLocationSelected = false;
+    updateReservationProgress();
+
+    reverseGeocode(position.lat, position.lng);
+});
+
+
+// Kapag nagta-type sa address field
+function handleAddressTyping(val) {
+    var addressInput = document.getElementById('delivery_address_input');
+    var summaryAddress = document.getElementById('summary_address_display');
+    var address = val.trim();
+
+    summaryAddress.innerText = address || 'None';
+
+    // Ang pag-type lamang ay hindi pa confirmed map location.
+    mapLocationSelected = false;
+    updateReservationProgress();
+
+    clearTimeout(addressLookupTimeout);
+
+    // Huwag maghanap ng location kung isang letra o maikling text pa lang.
+    if (address.length < 8) {
+        return;
+    }
+
+    addressLookupTimeout = setTimeout(function() {
+        fetch(
+            'https://nominatim.openstreetmap.org/search?format=json&q=' +
+            encodeURIComponent(address) +
+            '&limit=1'
+        )
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Unable to search for the address.');
+            }
+
+            return response.json();
+        })
+        .then(function(data) {
+            // Huwag gumamit ng resulta kung binago na ulit ang address.
+            if (addressInput.value.trim() !== address) {
+                return;
+            }
+
+            if (data && data.length > 0) {
+                var lat = parseFloat(data[0].lat);
+                var lng = parseFloat(data[0].lon);
+
+                if (isNaN(lat) || isNaN(lng)) {
+                    return;
+                }
+
+                // Ipakita ang nahanap na lokasyon sa map.
+                // Hindi pa ito confirmed hangga't hindi nagki-click
+                // o nagda-drag ang user sa map.
+                map.setView([lat, lng], 16);
+                marker.setLatLng([lat, lng]);
+                map.invalidateSize();
+            }
+        })
+        .catch(function(error) {
+            console.error('Address search error:', error);
+        });
+    }, 900);
+}
+
+
 
         // Bundle Logic Operations
         function setEgg(val) {
             document.getElementById('egg_type_select').value = val;
             document.querySelectorAll('.egg-btn').forEach(btn => {
                 btn.className = btn.getAttribute('data-egg') === val 
-                    ? "egg-btn flex flex-col items-center p-2 border rounded-lg transition-all border-blue-500 bg-blue-50"
+                   ? "egg-btn flex flex-col items-center p-2 border rounded-lg transition-all"
                     : "egg-btn flex flex-col items-center p-2 border rounded-lg transition-all border-gray-200 hover:bg-gray-50";
             });
         }
 
-        function addItemToBundle() {
-            const size = document.getElementById('egg_type_select').value;
-            const qty = parseInt(document.getElementById('quantity_input').value);
+     
+function addItemToBundle() {
 
-            if (!size || isNaN(qty) || qty <= 0) {
-                alert('Please select a valid size and quantity.');
-                return;
-            }
+    const size = document.getElementById(
+        'egg_type_select'
+    ).value;
 
-            const existingItem = bundleItems.find(item => item.size === size);
-            if (existingItem) {
-                existingItem.qty += qty;
-            } else {
-                bundleItems.push({ size, qty, price: priceList[size] });
-            }
+    const qty = parseInt(
+        document.getElementById('quantity_input').value,
+        10
+    );
 
-            document.getElementById('quantity_input').value = '';
-            updateLiveSummary();
+    if (!size || isNaN(qty) || qty <= 0) {
+
+        alert('Please select a valid size and quantity.');
+
+        return;
+    }
+
+    const existingItem = bundleItems.find(
+        function(item) {
+            return item.size === size;
         }
+    );
+
+    if (existingItem) {
+
+        existingItem.qty += qty;
+
+    } else {
+
+        bundleItems.push({
+            size: size,
+            qty: qty,
+            price: priceList[size]
+        });
+    }
+
+    /*
+       Do not clear the quantity, egg size,
+       customer information, address, or cart.
+    */
+
+    updateLiveSummary();
+
+    updateReservationProgress();
+}
+
 
         function removeBundleItem(index) {
             bundleItems.splice(index, 1);
             updateLiveSummary();
+                updateReservationProgress();
         }
 
         function updateLiveSummary() {
@@ -2564,6 +4107,7 @@ else {
         'None selected';
 
 }
+    updateReservationProgress();
         }
 
         function setMethod(method) {
@@ -2610,22 +4154,23 @@ else {
 
         // Description
         methodDescription.innerHTML = `
-            <div class="border border-blue-100 bg-blue-50 rounded-lg p-3">
-                <div class="flex items-start gap-2">
-                    <i class="fa-solid fa-truck text-blue-500 mt-0.5"></i>
+           <div class="border border-blue-100 bg-blue-50 rounded-lg p-3"
+     style="border-color: #d5e2d8; background-color: #f1f6f2;">
+    <div class="flex items-start gap-2">
+        <i class="fa-solid fa-truck mt-0.5" style="color: #214f2c;"></i>
 
-                    <div>
-                        <p class="text-xs font-bold text-blue-700">
-                            Delivery Selected
-                        </p>
+        <div>
+            <p class="text-xs font-bold" style="color: #214f2c;">
+                Delivery Selected
+            </p>
 
-                        <p class="text-[10px] text-blue-600 mt-1">
-                            The farm manager will assign your delivery date
-                            based on availability.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <p class="text-[10px] mt-1" style="color: #214f2c;">
+                The farm manager will assign your delivery date
+                based on availability.
+            </p>
+        </div>
+    </div>
+</div>
         `;
 
     }
@@ -2657,22 +4202,23 @@ else {
 
         // Description
         methodDescription.innerHTML = `
-            <div class="border border-green-100 bg-green-50 rounded-lg p-3">
-                <div class="flex items-start gap-2">
-                    <i class="fa-solid fa-shop text-green-500 mt-0.5"></i>
+          <div class="rounded-lg p-3"
+     style="border: 1px solid #d5e2d8; background-color: #f1f6f2;">
+    <div class="flex items-start gap-2">
+        <i class="fa-solid fa-shop mt-0.5" style="color: #214f2c;"></i>
 
-                    <div>
-                        <p class="text-xs font-bold text-green-700">
-                            Pickup Selected
-                        </p>
+        <div>
+            <p class="text-xs font-bold" style="color: #214f2c;">
+                Pickup Selected
+            </p>
 
-                        <p class="text-[10px] text-green-600 mt-1">
-                            Please select your preferred pickup date
-                            from the farm.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <p class="text-[10px] mt-1" style="color: #214f2c;">
+                Please select your preferred pickup date
+                from the farm.
+            </p>
+        </div>
+    </div>
+</div>
         `;
     }
 
@@ -2683,43 +4229,56 @@ else {
 
     btnDelivery.className =
         method === 'Delivery'
-        ? "p-3 border rounded-lg flex flex-col items-center justify-center space-y-1 border-blue-500 bg-blue-50 text-blue-600"
+       ? "p-3 border rounded-lg flex flex-col items-center justify-center space-y-1 border-green-800 bg-green-50 text-green-800"
         : "p-3 border rounded-lg flex flex-col items-center justify-center space-y-1 border-gray-200 text-gray-500";
 
     btnPickup.className =
         method === 'Pickup'
-        ? "p-3 border rounded-lg flex flex-col items-center justify-center space-y-1 border-blue-500 bg-blue-50 text-blue-600"
+       ? "p-3 border rounded-lg flex flex-col items-center justify-center space-y-1 border-green-800 bg-green-50 text-green-800"
         : "p-3 border rounded-lg flex flex-col items-center justify-center space-y-1 border-gray-200 text-gray-500";
-
-
-    updateLiveSummary();
+            updateLiveSummary();
+    updateReservationProgress();
 }
 
-      function validateForm() {
+    
+function validateForm() {
 
-    const contactNumber =
-        document.getElementById('contact_input').value;
+    var customerName = document.getElementById(
+        'cust_name_input'
+    ).value.trim();
 
-    const deliveryMethod =
-        document.getElementById('delivery_method_input').value;
+    var contactNumber = document.getElementById(
+        'contact_input'
+    ).value.trim();
 
-    const reservationDate =
-        document.getElementById('reservation_date_input').value;
+    var deliveryAddress = document.getElementById(
+        'delivery_address_input'
+    ).value.trim();
+
+    var deliveryMethod = document.getElementById(
+        'delivery_method_input'
+    ).value;
+
+    var reservationDate = document.getElementById(
+        'reservation_date_input'
+    ).value;
 
 
-    // =====================================================
-    // CONTACT NUMBER
-    // =====================================================
+    /* CUSTOMER NAME */
 
-    if (contactNumber.length !== 11) {
+    if (!customerName) {
 
-        alert('Contact number must be exactly 11 digits.');
+        alert('Please enter your full name.');
 
-        document.getElementById('contact_input').focus();
+        document.getElementById(
+            'cust_name_input'
+        ).focus();
 
         return false;
     }
 
+
+    /* CONTACT NUMBER */
 
     if (!/^09[0-9]{9}$/.test(contactNumber)) {
 
@@ -2727,31 +4286,36 @@ else {
             'Please enter a valid Philippine mobile number starting with 09.'
         );
 
-        document.getElementById('contact_input').focus();
+        document.getElementById(
+            'contact_input'
+        ).focus();
 
         return false;
     }
 
 
-    // =====================================================
-    // ITEMS
-    // =====================================================
+    /* DELIVERY ADDRESS AND MAP */
 
-    if (bundleItems.length === 0) {
+    if (!deliveryAddress || !mapLocationSelected) {
 
         alert(
-            'Please add at least one item row to your bundle layout.'
+            'Please enter an address and select a valid location on the map.'
         );
+
+        document.getElementById(
+            'delivery_address_input'
+        ).focus();
 
         return false;
     }
 
 
-    // =====================================================
-    // DELIVERY METHOD
-    // =====================================================
+    /* DELIVERY METHOD */
 
-    if (!deliveryMethod) {
+    if (
+        deliveryMethod !== 'Delivery' &&
+        deliveryMethod !== 'Pickup'
+    ) {
 
         alert(
             'Please choose either Delivery or Pickup.'
@@ -2761,35 +4325,52 @@ else {
     }
 
 
-    // =====================================================
-    // PICKUP DATE
-    // =====================================================
+    /* PICKUP DATE */
 
-    if (deliveryMethod === 'Pickup' && !reservationDate) {
+    if (
+        deliveryMethod === 'Pickup' &&
+        !reservationDate
+    ) {
 
         alert(
             'Please select your preferred pickup date.'
         );
 
-        document.getElementById('reservation_date_input').focus();
+        document.getElementById(
+            'reservation_date_input'
+        ).focus();
 
         return false;
     }
 
 
-    // =====================================================
-    // DELIVERY
-    // =====================================================
+    /* CART ITEMS */
 
-    if (deliveryMethod === 'Delivery') {
+    if (bundleItems.length === 0) {
 
-        // Delivery should NOT have a customer-selected date.
-        document.getElementById('reservation_date_input').value = '';
+        alert(
+            'Please add at least one item to your cart.'
+        );
+
+        return false;
     }
 
 
+    /* DELIVERY DOES NOT REQUIRE A CUSTOMER-SELECTED DATE */
+
+    if (deliveryMethod === 'Delivery') {
+
+        document.getElementById(
+            'reservation_date_input'
+        ).value = '';
+    }
+
+
+    updateReservationProgress();
+
     return true;
 }
+
 
         function openSuccessModal() { document.getElementById('success_modal').classList.remove('hidden'); }
         function closeSuccessModal() { document.getElementById('success_modal').classList.add('hidden'); }
@@ -2802,15 +4383,197 @@ else {
             .then(res => res.json()).then(data => { if(data.status === 'success') location.reload(); });
         }
 
-        function toggleNotifications(e) { e.stopPropagation(); document.getElementById('notification_dropdown').classList.toggle('hidden'); }
-        document.addEventListener('click', () => document.getElementById('notification_dropdown').classList.add('hidden'));
+        function toggleCustomerNotificationDropdown()
+        {
+            if (!customerNotificationDropdown) {
+                customerNotificationDropdown = document.getElementById('customerNotificationDropdown');
+            }
+
+            if (customerNotificationDropdown) {
+                isCustomerDropdownOpen = !isCustomerDropdownOpen;
+
+                if (isCustomerDropdownOpen) {
+                    customerNotificationDropdown.classList.remove('hidden');
+                    loadCustomerNotifications();
+                } else {
+                    customerNotificationDropdown.classList.add('hidden');
+                }
+            }
+        }
+
+        function closeCustomerNotificationDropdown()
+        {
+            if (customerNotificationDropdown && isCustomerDropdownOpen) {
+                customerNotificationDropdown.classList.add('hidden');
+                isCustomerDropdownOpen = false;
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            if (customerNotificationDropdown && isCustomerDropdownOpen) {
+                var notificationButton = document.querySelector('.customer-top-notification');
+                var notificationContainer = customerNotificationDropdown.parentElement;
+                if (!notificationContainer.contains(event.target)) {
+                    closeCustomerNotificationDropdown();
+                }
+            }
+        });
+
+        function loadCustomerNotifications()
+        {
+            var notificationList = document.getElementById('customerNotificationList');
+            if (!notificationList) return;
+
+            // Show loading state
+            notificationList.innerHTML = '<div class="customer-notification-empty"><i class="fa-solid fa-spinner fa-spin"></i><p>Loading notifications...</p></div>';
+
+            // Fetch notifications from the dedicated notifications page
+            fetch('customer_notifications.php')
+                .then(function(response) {
+                    return response.text();
+                })
+                .then(function(html) {
+                    // Parse the HTML to extract notification data
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+
+                    // Extract notification items from the dedicated page
+                    var notificationItems = doc.querySelectorAll('.notification-item');
+
+                    if (notificationItems.length > 0) {
+                        var notificationsHtml = '';
+                        notificationItems.forEach(function(item) {
+                            var isUnread = item.classList.contains('unread');
+                            var iconElement = item.querySelector('.notification-icon');
+                            var iconClass = 'info';
+                            var iconHtml = '<div class="customer-notification-icon info"><i class="fa-solid fa-bell"></i></div>';
+
+                            if (iconElement) {
+                                if (iconElement.classList.contains('success')) {
+                                    iconClass = 'success';
+                                    iconHtml = '<div class="customer-notification-icon success"><i class="fa-solid fa-check"></i></div>';
+                                } else if (iconElement.classList.contains('alert')) {
+                                    iconClass = 'alert';
+                                    iconHtml = '<div class="customer-notification-icon alert"><i class="fa-solid fa-exclamation"></i></div>';
+                                } else if (iconElement.classList.contains('warning')) {
+                                    iconClass = 'warning';
+                                    iconHtml = '<div class="customer-notification-icon warning"><i class="fa-solid fa-circle-exclamation"></i></div>';
+                                } else {
+                                    iconHtml = iconElement.outerHTML;
+                                }
+                            }
+
+                            var titleElement = item.querySelector('.notification-title');
+                            var title = titleElement ? titleElement.textContent : 'Notification';
+
+                            var descElement = item.querySelector('.notification-desc');
+                            var description = descElement ? descElement.textContent : '';
+
+                            var timeElement = item.querySelector('.notification-time');
+                            var time = timeElement ? timeElement.textContent : '';
+
+                            var notificationId = item.getAttribute('onclick') ? item.getAttribute('onclick').match(/\d+/) : null;
+
+                            notificationsHtml += '<div class="customer-notification-item ' + (isUnread ? 'unread' : 'read') + '">';
+                            notificationsHtml += iconHtml;
+                            notificationsHtml += '<div class="customer-notification-content">';
+                            notificationsHtml += '<div class="customer-notification-title">' + title + '</div>';
+                            notificationsHtml += '<div class="customer-notification-description">' + description + '</div>';
+                            notificationsHtml += '<div class="customer-notification-time">' + time + '</div>';
+                            notificationsHtml += '</div>';
+                            if (notificationId && isUnread) {
+                                notificationsHtml += '<button class="customer-mark-read-btn" onclick="markCustomerAsRead(' + notificationId + ', this)">Mark as Read</button>';
+                            }
+                            notificationsHtml += '</div>';
+                        });
+
+                        notificationList.innerHTML = notificationsHtml;
+                    } else {
+                        notificationList.innerHTML = '<div class="customer-notification-empty"><i class="fa-regular fa-bell-slash"></i><p>No notifications</p></div>';
+                    }
+                })
+                .catch(function(error) {
+                    notificationList.innerHTML = '<div class="customer-notification-empty"><i class="fa-solid fa-exclamation-circle"></i><p>Failed to load notifications</p></div>';
+                });
+        }
+
+        function markCustomerAsRead(notificationId, buttonElement)
+        {
+            var formData = new FormData();
+            formData.append('mark_read', '1');
+            formData.append('notification_id', notificationId);
+
+            fetch('customer_notifications.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    // Update UI
+                    var notificationItem = buttonElement.closest('.customer-notification-item');
+                    if (notificationItem) {
+                        notificationItem.classList.remove('unread');
+                        notificationItem.classList.add('read');
+                        buttonElement.remove();
+
+                        // Update badge
+                        var badge = document.querySelector('.customer-notification-badge');
+                        if (badge) {
+                            var currentBadge = parseInt(badge.textContent);
+                            if (!isNaN(currentBadge) && currentBadge > 0) {
+                                if (currentBadge > 1) {
+                                    badge.textContent = currentBadge - 1;
+                                } else {
+                                    badge.remove();
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            .catch(function(error) {
+                console.error('Failed to mark notification as read:', error);
+            });
+        }
+
+        function markAllCustomerAsRead(event)
+        {
+            event.preventDefault();
+            event.stopPropagation();
+
+            var formData = new FormData();
+            formData.append('mark_all_read', '1');
+
+            fetch('customer_notifications.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(response) {
+                return response.text();
+            })
+            .then(function() {
+                // Reload page to update all notification states
+                window.location.reload();
+            })
+            .catch(function(error) {
+                console.error('Failed to mark all notifications as read:', error);
+            });
+        }
+
+        var customerNotificationDropdown = null;
+        var isCustomerDropdownOpen = false;
 
         <?php if (!empty($message)): ?>
             document.addEventListener('DOMContentLoaded', openSuccessModal);
         <?php endif; ?>
 
 
-     function matchReservationStepHeights() {
+
+function matchReservationStepHeights() {
 
     const stepCards = document.querySelectorAll('.step-card');
     const step1Card = document.querySelector('.step-1-card');
@@ -2820,10 +4583,10 @@ else {
         return;
     }
 
-
     /* =====================================================
        MOBILE / TABLET
-       ===================================================== */
+       Keep Step 2 scrollable instead of expanding endlessly
+    ===================================================== */
 
     if (window.innerWidth < 1024) {
 
@@ -2832,9 +4595,11 @@ else {
         });
 
         scrollAreas.forEach(function(area) {
+
             area.style.height = '';
             area.style.maxHeight = '';
-            area.style.overflowY = 'visible';
+            area.style.overflowY = 'auto';
+
         });
 
         return;
@@ -2842,9 +4607,8 @@ else {
 
 
     /* =====================================================
-       IMPORTANT:
-       CLEAR ALL PREVIOUS INLINE HEIGHTS FIRST
-       ===================================================== */
+       CLEAR PREVIOUS INLINE HEIGHTS
+    ===================================================== */
 
     stepCards.forEach(function(card) {
         card.style.height = '';
@@ -2853,47 +4617,60 @@ else {
     scrollAreas.forEach(function(area) {
         area.style.height = '';
         area.style.maxHeight = '';
-        area.style.overflowY = 'visible';
+        area.style.overflowY = 'auto';
     });
 
 
     /* =====================================================
-       GET STEP 1'S TRUE NATURAL HEIGHT
+       GET STEP 1 NATURAL HEIGHT
+    ===================================================== */
 
-       Step 1 is NOT allowed to inherit the height
-       of Step 2 or Step 3.
-       ===================================================== */
-
-    const step1Height = step1Card.getBoundingClientRect().height;
+    const step1Height =
+        step1Card.getBoundingClientRect().height;
 
 
     /* =====================================================
-       APPLY STEP 1 HEIGHT TO STEP 2 & STEP 3
-       ===================================================== */
+       MAKE ALL STEP CARDS THE SAME HEIGHT
+    ===================================================== */
 
     stepCards.forEach(function(card) {
-        card.style.height = step1Height + 'px';
+
+        card.style.height =
+            step1Height + 'px';
+
+        card.style.minHeight =
+            step1Height + 'px';
+
     });
 
 
     /* =====================================================
-       STEP 2 & STEP 3 = INTERNAL SCROLL
-
-       Their outer cards have the exact same height
-       as Step 1, while their content can scroll.
-       ===================================================== */
+       STEP 2 AND STEP 3 INTERNAL SCROLL
+    ===================================================== */
 
     scrollAreas.forEach(function(area) {
 
-        area.style.height = 'auto';
-        area.style.flex = '1 1 auto';
-        area.style.minHeight = '0';
-        area.style.overflowY = 'auto';
+        area.style.flex =
+            '1 1 auto';
+
+        area.style.minHeight =
+            '0';
+
+        area.style.height =
+            'auto';
+
+        area.style.maxHeight =
+            'none';
+
+        area.style.overflowY =
+            'auto';
+
+        area.style.overflowX =
+            'hidden';
 
     });
 
 }
-
 
 /* Run after page finishes loading */
 window.addEventListener('load', function() {
@@ -2937,47 +4714,28 @@ function copyReservationCode() {
     }
 }
 
+/* =========================================================
+   AUTOMATIC RESERVATION PROGRESS UPDATES
+========================================================= */
 
-function updateLiveTime() {
-
-    var now = new Date();
-
-    var hours = now.getHours();
-    var minutes = now.getMinutes();
-    var seconds = now.getSeconds();
-
-    var ampm = hours >= 12 ? "PM" : "AM";
-
-    hours = hours % 12;
-
-    if (hours === 0) {
-        hours = 12;
-    }
-
-    hours = hours < 10 ? "0" + hours : hours;
-    minutes = minutes < 10 ? "0" + minutes : minutes;
-    seconds = seconds < 10 ? "0" + seconds : seconds;
-
-    var timeString =
-        hours + ":" +
-        minutes + ":" +
-        seconds + " " +
-        ampm;
-
-    var liveTime =
-        document.getElementById("live-time");
-
-    if (liveTime) {
-        liveTime.innerHTML = timeString;
-    }
-}
-
-updateLiveTime();
-
-setInterval(
-    updateLiveTime,
-    1000
+document.getElementById('cust_name_input').addEventListener(
+    'input',
+    updateReservationProgress
 );
+
+document.getElementById('contact_input').addEventListener(
+    'input',
+    updateReservationProgress
+);
+
+document.getElementById('reservation_date_input').addEventListener(
+    'change',
+    updateLiveSummary
+);
+
+/* Set the initial progress state when the page loads */
+updateLiveSummary();
+updateReservationProgress();
 
 
     </script>

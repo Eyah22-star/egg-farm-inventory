@@ -1,10 +1,10 @@
 <?php
 ob_start();
 
-if (session_id() == '') {
-    session_start();
-    date_default_timezone_set('Asia/Manila');
-}
+// Include standardized session configuration FIRST
+require_once 'session_config.php';
+
+date_default_timezone_set('Asia/Manila');
 
 require 'db.php';
 
@@ -22,16 +22,134 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'customer') {
     exit();
 }
 
+/* PHP 5.5 COMPATIBLE TOKEN COMPARISON */
+function customerTokenEquals($known, $submitted)
+{
+    if (!is_string($known) || !is_string($submitted)) {
+        return false;
+    }
 
+    if (strlen($known) !== strlen($submitted)) {
+        return false;
+    }
+
+    $result = 0;
+    $length = strlen($known);
+
+    for ($i = 0; $i < $length; $i++) {
+        $result |= ord($known[$i]) ^ ord($submitted[$i]);
+    }
+
+    return $result === 0;
+}
 /* =========================================================
-   CUSTOMER INFORMATION
+   SECURE CUSTOMER LOGOUT
 ========================================================= */
 
-$customer_id = $_SESSION['user_id'];
 
-$customer_name = isset($_SESSION['customer_name'])
-    ? $_SESSION['customer_name']
-    : (isset($_SESSION['name']) ? $_SESSION['name'] : 'Customer');
+/* Create a logout token for form validation. */
+if (empty($_SESSION['customer_logout_token'])) {
+    if (function_exists('random_bytes')) {
+        $_SESSION['customer_logout_token'] = bin2hex(
+            random_bytes(32)
+        );
+    } elseif (function_exists('openssl_random_pseudo_bytes')) {
+        $_SESSION['customer_logout_token'] = bin2hex(
+            openssl_random_pseudo_bytes(32)
+        );
+    } else {
+        // Compatible fallback for older PHP installations.
+        $_SESSION['customer_logout_token'] = hash(
+            'sha256',
+            uniqid(mt_rand(), true) . session_id()
+        );
+    }
+}
+
+
+
+/* Process logout only after the customer confirms. */
+if (
+    $_SERVER['REQUEST_METHOD'] == 'POST' &&
+    isset($_POST['customer_logout'])
+) {
+    $submitted_token = isset($_POST['logout_token'])
+        ? $_POST['logout_token']
+        : '';
+
+    $session_token = isset($_SESSION['customer_logout_token'])
+        ? $_SESSION['customer_logout_token']
+        : '';
+
+    if (
+        $submitted_token !== '' &&
+        $session_token !== '' &&
+        is_string($submitted_token) &&
+        is_string($session_token) &&
+        strlen($submitted_token) === strlen($session_token) &&
+       customerTokenEquals($session_token, $submitted_token)
+    ) {
+        $_SESSION = array();
+
+        if (ini_get('session.use_cookies')) {
+            $cookie_params = session_get_cookie_params();
+
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $cookie_params['path'],
+                $cookie_params['domain'],
+                $cookie_params['secure'],
+                $cookie_params['httponly']
+            );
+        }
+
+        session_destroy();
+
+        header("Location: login.php");
+        exit();
+    }
+
+    header("Location: customer_dashboard.php");
+    exit();
+}
+
+$customer_id = $_SESSION['user_id'];
+$unread_notifications = 0;
+
+$notification_count_result = $conn->query(
+    "SELECT COUNT(*) AS total
+     FROM notifications
+     WHERE user_id = " . (int)$customer_id . "
+     AND is_read = 0"
+);
+
+if ($notification_count_result && ($notification_count_row = $notification_count_result->fetch_assoc())) {
+    $unread_notifications = (int)$notification_count_row['total'];
+}
+
+/* GET LOGGED-IN CUSTOMER NAME FROM DATABASE */
+
+$customer_name = 'Customer';
+
+$customer_sql = "SELECT fullname FROM users WHERE id = ? LIMIT 1";
+$customer_stmt = $conn->prepare($customer_sql);
+
+if ($customer_stmt) {
+    $customer_stmt->bind_param("i", $customer_id);
+    $customer_stmt->execute();
+
+    $customer_result = $customer_stmt->get_result();
+
+    if ($customer_result && ($customer_row = $customer_result->fetch_assoc())) {
+        if (!empty($customer_row['fullname'])) {
+            $customer_name = $customer_row['fullname'];
+        }
+    }
+
+    $customer_stmt->close();
+}
 
 
 /* =========================================================
@@ -43,7 +161,7 @@ $total_reservations = 0;
 $reservation_count_sql = "
     SELECT COUNT(DISTINCT reservation_code) AS total
     FROM reservations
-    WHERE customer_id = ?
+    WHERE user_id = ?
 ";
 
 $stmt = $conn->prepare($reservation_count_sql);
@@ -71,7 +189,7 @@ $total_trays = 0;
 $total_trays_sql = "
     SELECT SUM(quantity) AS total
     FROM reservations
-    WHERE customer_id = ?
+    WHERE user_id = ?
 ";
 
 $stmt = $conn->prepare($total_trays_sql);
@@ -97,13 +215,18 @@ if ($stmt) {
 $egg_stocks = array();
 
 $stock_sql = "
-    SELECT 
-        egg_size,
-        available_stock
-    FROM egg_inventory
+    SELECT
+        e.egg_size,
+        e.current_stock AS available_stock
+    FROM egg_inventory e
+    INNER JOIN (
+        SELECT egg_size, MAX(id) AS id
+        FROM egg_inventory
+        GROUP BY egg_size
+    ) latest ON latest.id = e.id
     ORDER BY 
         FIELD(
-            egg_size,
+                e.egg_size,
             'XS',
             'Small',
             'Medium',
@@ -133,12 +256,12 @@ $recent_activities = array();
 $activity_sql = "
     SELECT
         reservation_code,
-        egg_size,
+        egg_type AS egg_size,
         quantity,
         status,
         reserved_at
     FROM reservations
-    WHERE customer_id = ?
+    WHERE user_id = ?
     ORDER BY reserved_at DESC
     LIMIT 5
 ";
@@ -251,11 +374,10 @@ function getActivityIcon($status)
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
     >
 
- 
-<style>
+ <style>
 
 /* =========================================================
-   GLOBAL
+   GLOBAL RESET
 ========================================================= */
 
 * {
@@ -272,148 +394,144 @@ body {
 
 body {
     min-height: 100vh;
-
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
-
+    font-family: Arial, Helvetica, sans-serif;
     background: #f3f1eb;
+    color: #263d32;
+    font-size: 12px;
+}
 
-    color: #3f4b45;
+a {
+    color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
 }
 
 
 /* =========================================================
-   MAIN CONTENT
+   NAVBAR
 ========================================================= */
 
-.main-content {
-
-    margin-left: 312px;
-
-    min-height: 100vh;
-
-    padding: 18px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #eeece6 0%,
-            #f5f3ed 100%
-        );
-}
-
-
-/* =========================================================
-   CUSTOMER DASHBOARD OUTER CARD
-========================================================= */
-
-.customer-dashboard-wrapper {
-
+.customer-navbar {
     width: 100%;
+    height: 84px;
 
-    min-height:
-        calc(100vh - 36px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-    overflow: hidden;
+    padding: 0 48px;
 
-    background: #ffffff;
+    background: #0d4828;
 
-    border:
-        1px solid #dedbd2;
+    border-top: 1px solid #dddddd;
+    border-bottom: 1px solid #e6e6e6;
 
-    border-radius: 22px;
+     /* Keep navbar visible while scrolling */
+    position: sticky;
+    top: 0;
+    left: 0;
 
-    box-shadow:
-        0 12px 35px
-        rgba(
-            80,
-            72,
-            55,
-            0.10
-        );
-
-    padding: 0;
+    z-index: 1000;
 }
 
 
 /* =========================================================
-   CUSTOMER DASHBOARD HEADER
-   SAME STYLE AS RESERVATION / MANAGER HEADER
+   LOGO
 ========================================================= */
 
-.customer-dashboard-topbar {
+.customer-navbar-logo {
+    display: flex;
+    align-items: center;
 
-    min-height:
-        86px;
+    width: 190px;
+    flex-shrink: 0;
+}
 
-    width:
-        100%;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        space-between;
-
-    padding:
-        0 28px;
-
-    background:
-        #f7f6f2;
-
-    border-bottom:
-        1px solid #dddcd6;
-
-    box-sizing:
-        border-box;
+.customer-navbar-logo img {
+    width: 145px;
+    height: auto;
+    display: block;
 }
 
 
 /* =========================================================
-   HEADER TITLE
+   NAVIGATION
 ========================================================= */
 
-.customer-page-title {
+.customer-navbar-center {
+    height: 100%;
 
-    margin:
-        0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    font-size:
-        1.35rem;
+    gap: 38px;
 
-    font-weight:
-        700;
+    margin-left: 80px;
+}
 
-    color:
-        #3f4b45;
+.customer-nav-link {
+    height: 100%;
 
-    letter-spacing:
-        -0.3px;
+    display: flex;
+    align-items: center;
+
+    position: relative;
+
+    padding: 0 2px;
+
+    text-decoration: none;
+
+    color: #e8f1e9;
+
+    font-size: 14px;
+    font-weight: 400;
+
+    transition: color 0.2s ease;
+}
+
+.customer-nav-link:hover {
+    color: #b9e4c3;
+}
+
+.customer-nav-link.active {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.customer-nav-link.active::after {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+    right: 0;
+    bottom: 20px;
+
+    height: 2px;
+
+    background: #175c31;
 }
 
 
 /* =========================================================
-   HEADER RIGHT
+   NAVBAR RIGHT
 ========================================================= */
 
-.customer-topbar-right {
+.customer-navbar-right {
+    display: flex;
+    align-items: center;
 
-    display:
-        flex;
+    gap: 16px;
 
-    align-items:
-        center;
+    min-width: 240px;
 
-    gap:
-        18px;
-
-    height:
-        100%;
+    justify-content: flex-end;
 }
 
 
@@ -421,438 +539,600 @@ body {
    NOTIFICATION
 ========================================================= */
 
-.customer-top-notification {
-
-    position:
-        relative;
-
-    width:
-        40px;
-
-    height:
-        40px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    text-decoration:
-        none;
-
-    color:
-        #65716b;
-
-    font-size:
-        1.2rem;
-
-    transition:
-        0.2s ease;
+.customer-notification-wrapper {
+    position: relative;
 }
 
+.customer-top-notification {
+    width: 38px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    background: transparent;
+
+    color: #eaf2e8;
+
+    font-size: 17px;
+
+    cursor: pointer;
+
+    position: relative;
+
+    padding: 0;
+}
 
 .customer-top-notification:hover {
-
-    color:
-        #527d59;
+    color: #bfe3c7;
 }
-
-
-/* =========================================================
-   NOTIFICATION BADGE
-========================================================= */
 
 .customer-notification-badge {
+    position: absolute;
 
-    position:
-        absolute;
+    top: 1px;
+    right: 1px;
 
-    top:
-        1px;
+    min-width: 15px;
+    height: 15px;
 
-    right:
-        0;
+    padding: 0 3px;
 
-    min-width:
-        17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    height:
-        17px;
+   background-color: #eaf2e8;
+    color: #0d4828;
+    border: 2px solid #0d4828;
 
-    padding:
-        0 4px;
+    border-radius: 50%;
 
-    border-radius:
-        50%;
+   
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    background:
-        #527d59;
-
-    color:
-        #ffffff;
-
-    font-size:
-        0.58rem;
-
-    font-weight:
-        700;
-
-    border:
-        2px solid #f7f6f2;
+    font-size: 8px;
+    font-weight: 700;
 }
 
 
 /* =========================================================
-   HEADER DIVIDER
+   NOTIFICATION DROPDOWN
 ========================================================= */
 
-.customer-topbar-divider {
+.customer-notification-dropdown {
+    position: absolute;
 
-    width:
-        1px;
+    top: 48px;
+    right: 0;
 
-    height:
-        42px;
+    width: 355px;
 
-    background:
-        #deded8;
-}
+    background: #ffffff;
 
+    border: 1px solid #dedede;
 
-/* =========================================================
-   CUSTOMER PROFILE
-========================================================= */
-
-.customer-top-profile {
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        11px;
-
-    min-width:
-        190px;
-
-    text-decoration:
-        none;
-
-    color:
-        #3f4b45;
-}
-
-
-/* =========================================================
-   CUSTOMER AVATAR
-========================================================= */
-
-.customer-avatar {
-
-    width:
-        54px;
-
-    height:
-        54px;
-
-    min-width:
-        54px;
-
-    border-radius:
-        50%;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    background:
-        #e8ebe7;
-
-    border:
-        1px solid #d9ddd8;
-
-    color:
-        #527d59;
-
-    font-size:
-        1.25rem;
+    border-radius: 10px;
 
     box-shadow:
-        0 2px 6px
-        rgba(
-            0,
-            0,
-            0,
-            0.04
-        );
+        0 12px 30px rgba(0, 0, 0, 0.12);
+
+    overflow: hidden;
+
+    z-index: 1000;
+}
+
+.customer-notification-dropdown.hidden {
+    display: none;
+}
+
+.customer-notification-dropdown-header {
+    min-height: 52px;
+
+    padding: 0 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    border-bottom: 1px solid #eeeeee;
+}
+
+.customer-panel-title-group {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.customer-panel-title-icon {
+    width: 30px;
+    height: 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #edf5ee;
+    color: #39704c;
+
+    font-size: 13px;
+}
+
+.customer-dashboard-panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #34483d;
+}
+
+.customer-mark-all-link {
+    font-size: 10px;
+    font-weight: 700;
+
+    color: #39704c;
+
+    text-decoration: none;
+
+    cursor: pointer;
+}
+
+.customer-mark-all-link:hover {
+    text-decoration: underline;
+}
+
+.customer-notification-list {
+    max-height: 390px;
+    overflow-y: auto;
+}
+
+.customer-notification-item {
+    display: flex;
+    align-items: flex-start;
+
+    gap: 10px;
+
+    padding: 12px 15px;
+
+    border-bottom: 1px solid #f0f0f0;
+
+    cursor: pointer;
+
+    transition: background 0.15s ease;
+}
+
+.customer-notification-item:hover {
+    background: #fafcf9;
+}
+
+.customer-notification-item.unread {
+    background: #f1f7f2;
+}
+
+.customer-notification-icon {
+    width: 34px;
+    height: 34px;
+
+    min-width: 34px;
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 13px;
+}
+
+.customer-notification-icon.success {
+    background: #e8f4e9;
+    color: #39834c;
+}
+
+.customer-notification-icon.alert {
+    background: #fbe9e7;
+    color: #c85448;
+}
+
+.customer-notification-icon.info {
+    background: #e7f0f5;
+    color: #46758a;
+}
+
+.customer-notification-icon.warning {
+    background: #fff2dc;
+    color: #bd8127;
+}
+
+.customer-notification-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.customer-notification-title {
+    font-size: 12px;
+    font-weight: 700;
+
+    color: #30473a;
+
+    margin-bottom: 3px;
+}
+
+.customer-notification-description {
+    font-size: 11px;
+    line-height: 1.4;
+
+    color: #718078;
+}
+
+.customer-notification-time {
+    font-size: 10px;
+    color: #9aa39e;
+
+    margin-top: 3px;
+}
+
+.customer-notification-empty {
+    padding: 40px 20px;
+
+    text-align: center;
+
+    color: #929b95;
+}
+
+.customer-notification-empty i {
+    font-size: 30px;
+    margin-bottom: 10px;
+    color: #ccd5cf;
+}
+
+.customer-notification-empty p {
+    margin: 0;
+    font-size: 12px;
 }
 
 
 /* =========================================================
-   CUSTOMER ACCOUNT DETAILS
+   CUSTOMER ACCOUNT
 ========================================================= */
+
+.customer-account-link {
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    text-decoration: none;
+
+    color: #263d32;
+}
+
+.customer-avatar {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e1e9df;
+    border-radius: 50%;
+   background-color: #dcebdd;
+color: #0d4828;
+    font-size: 16px;
+}
 
 .customer-account-details {
+    display: flex;
+    flex-direction: column;
 
-    display:
-        flex;
+    justify-content: center;
 
-    flex-direction:
-        column;
-
-    justify-content:
-        center;
-
-    min-width:
-        100px;
+    min-width: 100px;
 }
-
-
-/* =========================================================
-   CUSTOMER NAME
-========================================================= */
 
 .customer-top-name {
+    display: block;
 
-    display:
-        block;
+    font-size: 13px;
+    font-weight: 700;
 
-    margin:
-        0;
+    line-height: 1.2;
 
-    color:
-        #3f4b45;
-
-    font-size:
-        0.88rem;
-
-    font-weight:
-        700;
-
-    line-height:
-        1.2;
+    color: #ffffff;
 }
-
-
-/* =========================================================
-   DATE AND LIVE TIME
-========================================================= */
 
 .customer-date-time {
+    display: flex;
+    flex-direction: column;
 
-    display:
-        flex;
+    gap: 1px;
 
-    flex-direction:
-        column;
-
-    align-items:
-        flex-start;
-
-    gap:
-        2px;
-
-    margin-top:
-        5px;
-
-    white-space:
-        nowrap;
+    margin-top: 3px;
 }
-
-
-.customer-date {
-
-    font-size:
-        0.63rem;
-
-    color:
-        #8a9590;
-
-    line-height:
-        1.2;
+ 
+.customer-date{
+    font-size: 9px;
+    color: #d5e5d8;
 }
-
 
 .customer-time {
+    font-size: 9px;
 
-    font-size:
-        0.63rem;
+    color: #d5e5d8;
 
-    color:
-        #527d59;
-
-    font-weight:
-        600;
-
-    line-height:
-        1.2;
-
-    white-space:
-        nowrap;
+    font-weight: 600;
+    
 }
-
-
-/* =========================================================
-   DROPDOWN ICON
-========================================================= */
 
 .customer-dropdown-icon {
+    color: #718079;
+    font-size: 9px;
 
-    width:
-        28px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    color:
-        #65716b;
-
-    font-size:
-        0.7rem;
+    margin-left: 3px;
 }
 
 /* =========================================================
-   DASHBOARD CONTENT
+   CUSTOMER ACCOUNT DROPDOWN
 ========================================================= */
 
-.customer-dashboard-content {
+.customer-account-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
-    width:
-        100%;
 
-    padding:
-        22px 28px 28px;
+
+
+
+.customer-account-toggle {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #eaf2e8;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.customer-account-toggle:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.customer-account-dropdown {
+    position: absolute;
+    top: calc(100% + 13px);
+    right: 0;
+    width: 190px;
+    padding: 7px;
+    background: #ffffff;
+    border: 1px solid #e1e7e1;
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+    z-index: 1100;
+}
+
+.customer-account-dropdown.hidden {
+    display: none;
+}
+
+.customer-logout-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 12px 13px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #b33a32;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.customer-logout-option:hover {
+    background: #fff0ee;
+}
+
+.customer-logout-option i {
+    width: 16px;
+    text-align: center;
+}
+
+/* =========================================================
+   LOGOUT CONFIRMATION MODAL
+========================================================= */
+
+.customer-logout-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 31, 21, 0.55);
+    z-index: 2000;
+}
+
+.customer-logout-overlay.hidden {
+    display: none;
+}
+
+.customer-logout-modal {
+    width: 100%;
+    max-width: 390px;
+    padding: 28px 25px 23px;
+    background: #ffffff;
+    border: 1px solid #e4e8e3;
+    border-radius: 15px;
+    box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+    text-align: center;
+    animation: logoutModalAppear 0.18s ease-out;
+}
+
+.customer-logout-icon {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fff0ee;
+    color: #b33a32;
+    font-size: 23px;
+}
+
+.customer-logout-modal h2 {
+    margin: 0 0 10px;
+    color: #263d32;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.customer-logout-modal p {
+    margin: 0;
+    color: #737d75;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.customer-logout-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 25px;
+}
+
+.customer-logout-cancel,
+.customer-logout-confirm {
+    min-height: 40px;
+    padding: 0 17px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.customer-logout-cancel {
+    border: 1px solid #d9dfd9;
+    background: #ffffff;
+    color: #46554d;
+}
+
+.customer-logout-cancel:hover {
+    background: #f3f5f2;
+}
+
+.customer-logout-confirm {
+    border: 1px solid #b33a32;
+    background: #b33a32;
+    color: #ffffff;
+}
+
+.customer-logout-confirm:hover {
+    background: #962e27;
+}
+
+@keyframes logoutModalAppear {
+    from {
+        opacity: 0;
+        transform: translateY(7px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 
 /* =========================================================
-   DASHBOARD GREETING
+   HERO / WELCOME BANNER
 ========================================================= */
 
-.dashboard-header {
+.customer-hero {
+    width: 100%;
+    height: 150px;
 
-    margin-bottom:
-        24px;
+    position: relative;
+
+    overflow: hidden;
+
+    background-image:
+     
+        url("welcome.jpg");
+
+    background-size: cover;
+
+    background-position: center 48%;
+
+    display: flex;
+    align-items: center;
+}
+
+.customer-hero-content {
+    width: calc(100% - 100px);
+
+    max-width: 1740px;
+
+    margin: 0 auto;
+
+    padding-left: 130px;
 }
 
 
-.greeting-wrapper {
 
-    display:
-        flex;
+.customer-hero-title {
+    margin: 0 0 7px;
 
-    align-items:
-        flex-start;
+    font-family: Georgia, "Times New Roman", serif;
 
-    gap:
-        10px;
+    font-size: clamp(27px, 3.1vw, 35px);
+
+   font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.5px;
+
+    color: #155331;
+
+}
+
+.customer-hero-subtitle {
+    margin: 0;
+
+    font-size: 15px;
+
+    color: #303a32;
+
+    letter-spacing: 1.45;
 }
 
 
-.greeting-icon {
+/* =========================================================
+   MAIN PAGE
+========================================================= */
 
-    color:
-        #315f4a;
+.customer-page {
+    width: calc(100% - 100px);
 
-    font-size:
-        22px;
+    max-width: 1740px;
 
-    margin-top:
-        4px;
-}
+    margin: 0 auto;
 
-
-.greeting-text-container {
-
-    display:
-        flex;
-
-    flex-direction:
-        column;
-}
-
-
-.dashboard-header h1 {
-
-    margin:
-        0;
-
-    font-family:
-        Georgia,
-        "Times New Roman",
-        serif;
-
-    font-size:
-        25px;
-
-    font-weight:
-        700;
-
-    color:
-        #315f4a;
-
-    letter-spacing:
-        0.5px;
-
-    line-height:
-        1.1;
-}
-
-
-.dashboard-header h1 span {
-
-    font-size:
-        25px;
-}
-
-
-.dashboard-header p {
-
-    margin:
-        5px 0 0;
-
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
-
-    font-size:
-        13px;
-
-    font-weight:
-        400;
-
-    color:
-        #77817b;
-
-    letter-spacing:
-        0.2px;
+    padding: 16px 0 22px;
+   
 }
 
 
@@ -861,212 +1141,109 @@ body {
 ========================================================= */
 
 .summary-grid {
-
-    display:
-        grid;
+    display: grid;
 
     grid-template-columns:
         repeat(3, 1fr);
 
-    gap:
-        14px;
+    gap: 16px;
 
-    margin-bottom:
-        14px;
+    margin-bottom: 14px;
 }
-
 
 .summary-card {
+    min-height: 82px;
 
-    min-height:
-        98px;
+    background: #ffffff;
 
-    padding:
-        15px;
+    border: 1px solid #dfe3df;
 
-    border-radius:
-        10px;
+    border-radius: 9px;
 
-    background:
-        linear-gradient(
-            135deg,
-            #ffffff 0%,
-            #f8f8f4 100%
-        );
+    padding: 14px 18px;
 
-    border:
-        1px solid #e2dfd7;
+    display: flex;
+    align-items: center;
 
     box-shadow:
-        0 3px 10px
-        rgba(
-            70,
-            65,
-            55,
-            0.06
-        );
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    transition:
-        0.2s ease;
+        0 2px 7px rgba(38, 61, 50, 0.05);
 }
-
-
-.summary-card:hover {
-
-    transform:
-        translateY(-2px);
-
-    box-shadow:
-        0 8px 18px
-        rgba(
-            70,
-            65,
-            55,
-            0.10
-        );
-}
-
-
-/* =========================================================
-   SUMMARY ICON
-========================================================= */
 
 .summary-icon {
+    width: 45px;
+    height: 45px;
 
-    width:
-        42px;
+    min-width: 45px;
 
-    height:
-        42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    min-width:
-        42px;
+    border-radius: 50%;
 
-    border-radius:
-        50%;
+    margin-right: 13px;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    font-size:
-        18px;
-
-    margin-right:
-        12px;
+    font-size: 17px;
 }
-
 
 .summary-icon.account {
-
-    background:
-        #e9f1e6;
-
-    color:
-        #527d59;
+    background: #edf4ed;
+    color: #3b8052;
 }
-
 
 .summary-icon.reservation {
-
-    background:
-        #eee9f7;
-
-    color:
-        #70558c;
+    background: #f0eafa;
+    color: #7655a1;
 }
-
 
 .summary-icon.trays {
-
-    background:
-        #e6f0f4;
-
-    color:
-        #3e7182;
+    background: #e8f2f5;
+    color: #36748b;
 }
-
 
 .summary-content {
-
-    min-width:
-        0;
+    min-width: 0;
 }
-
 
 .summary-content span {
-
-    display:
-        block;
-
-    font-size:
-        13px;
-
-    font-weight:
-        700;
-
-    color:
-        #59635c;
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: #59635c;
+    line-height: 1.25;
 }
-
 
 .summary-content h2 {
-
-    margin:
-        6px 0 0;
-
-    font-size:
-        24px;
-
-    color:
-        #38433d;
-
-    font-weight:
-        700;
+    margin: 5px 0 0;
+    font-size: 25px;
+    color: #38433d;
+    font-weight: 700;
+    line-height: 1.15;
 }
 
-
 .summary-content small {
-
-    display:
-        block;
-
-    margin-top:
-        6px;
-
-    font-size:
-        11px;
-
-    color:
-        #8b9089;
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: #8b9089;
+    line-height: 1.2;
 }
 
 
 /* =========================================================
-   MAIN DASHBOARD GRID
+   DASHBOARD GRID
 ========================================================= */
 
 .dashboard-grid {
-
-    display:
-        grid;
+    display: grid;
 
     grid-template-columns:
-        1.2fr 0.9fr;
+        minmax(0, 1.65fr)
+        minmax(330px, 1fr);
 
-    gap:
-        14px;
+    gap: 14px;
+
+    align-items: stretch;
 }
 
 
@@ -1075,30 +1252,18 @@ body {
 ========================================================= */
 
 .dashboard-card {
+    min-width: 0;
 
-    min-width:
-        0;
+    background: #ffffff;
 
-    overflow:
-        hidden;
+    border: 1px solid #dfe3df;
 
-    border-radius:
-        10px;
+    border-radius: 9px;
 
-    border:
-        1px solid #e2dfd7;
-
-    background:
-        #ffffff;
+    overflow: hidden;
 
     box-shadow:
-        0 3px 10px
-        rgba(
-            70,
-            65,
-            55,
-            0.05
-        );
+        0 2px 7px rgba(38, 61, 50, 0.05);
 }
 
 
@@ -1107,120 +1272,66 @@ body {
 ========================================================= */
 
 .card-header {
+    min-height: 56px;
 
-    min-height:
-        50px;
+    padding: 0 16px;
 
-    padding:
-        0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        space-between;
-
-    border-bottom:
-        1px solid #e9e6df;
+    border-bottom: 1px solid #e7eae7;
 }
-
 
 .card-title {
+    display: flex;
+    align-items: center;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        10px;
+    gap: 9px;
 }
-
 
 .card-title-icon {
+    width: 32px;
+    height: 32px;
 
-    width:
-        30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    height:
-        30px;
+    border-radius: 50%;
 
-    display:
-        flex;
+    background: #edf4ed;
 
-    align-items:
-        center;
+    color: #39794d;
 
-    justify-content:
-        center;
-
-    border-radius:
-        50%;
-
-    background:
-        #eef3ed;
-
-    color:
-        #527d59;
-
-    font-size:
-        14px;
+    font-size: 13px;
 }
-
 
 .card-title-text h2 {
-
-    margin:
-        0;
-
-    font-size:
-        14px;
-
-    font-weight:
-        700;
-
-    color:
-        #3f4b45;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #3f4b45;
+    line-height: 1.2;
 }
-
 
 .card-title-text p {
-
-    margin:
-        4px 0 0;
-
-    font-size:
-        10px;
-
-    color:
-        #8a9089;
+    margin: 4px 0 0;
+    font-size: 11px;
+    color: #8a9089;
+    line-height: 1.2;
 }
 
-
 .view-all-btn {
-
-    font-size:
-        11px;
-
-    font-weight:
-        700;
-
-    color:
-        #527d59;
-
-    text-decoration:
-        none;
+    font-size: 12px;
+    font-weight: 700;
+    color: #527d59;
+    text-decoration: none;
 }
 
 
 .view-all-btn:hover {
-
-    text-decoration:
-        underline;
+    text-decoration: underline;
 }
 
 
@@ -1229,138 +1340,78 @@ body {
 ========================================================= */
 
 .stock-table-container {
+    width: 100%;
 
-    width:
-        100%;
+    padding: 9px 12px 4px;
 
-    overflow-x:
-        auto;
-
-    padding:
-        10px 12px;
+    overflow-x: auto;
 }
 
-
 .stock-table {
-
-    width:
-        100%;
-
-    border-collapse:
-        collapse;
-
-    font-size:
-        11px;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
 }
 
 
 .stock-table thead {
-
-    background:
-        #edf0eb;
+    background: #edf3ee;
 }
-
 
 .stock-table th {
-
-    padding:
-        9px 8px;
-
-    color:
-        #627068;
-
-    font-size:
-        11px;
-
-    font-weight:
-        700;
-
-    text-align:
-        left;
-
-    white-space:
-        nowrap;
+    padding: 9px 8px;
+    color: #627068;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: left;
+    white-space: nowrap;
 }
-
 
 .stock-table td {
-
-    padding:
-        12px 10px;
-
-    color:
-        #59635c;
-
-    border-bottom:
-        1px solid #eceae4;
-
-    font-size:
-        13px;
+    padding: 11px 10px;
+    color: #59635c;
+    border-bottom: 1px solid #eceae4;
+    font-size: 13px;
 }
-
 
 .stock-table tbody tr:last-child td {
-
-    border-bottom:
-        none;
+    border-bottom: none;
 }
-
 
 .stock-table tbody tr:hover {
-
-    background:
-        #fafaf7;
+    background: #fafcf9;
 }
 
+.stock-table td strong {
+    color: #273d32;
+
+    font-size: 10px;
+
+    font-weight: 700;
+}
 
 .stock-number {
-
-    font-size:
-        17px;
-
-    font-weight:
-        700;
-
-    color:
-        #46554d;
+    font-size: 17px;
+    font-weight: 700;
+    color: #46554d;
 }
-
 
 .stock-status {
-
-    display:
-        inline-flex;
-
-    align-items:
-        center;
-
-    gap:
-        7px;
-
-    font-size:
-        11px;
-
-    color:
-        #527d59;
-
-    font-weight:
-        700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #527d59;
+    font-weight: 700;
 }
 
-
 .status-dot {
+    width: 6px;
+    height: 6px;
 
-    width:
-        7px;
+    border-radius: 50%;
 
-    height:
-        7px;
-
-    border-radius:
-        50%;
-
-    background:
-        #527d59;
+    background: #3c8b50;
 }
 
 
@@ -1369,304 +1420,153 @@ body {
 ========================================================= */
 
 .stock-footer {
-
-    padding:
-        12px 14px 16px;
+    padding: 5px 12px 13px;
 }
-
 
 .stock-info {
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        8px;
-
-    color:
-        #8a9089;
-
-    font-size:
-        10px;
-
-    margin-bottom:
-        14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #8a9089;
+    font-size: 11px;
+    margin-bottom: 12px;
 }
-
 
 .stock-info i {
+    color: #3f8050;
 
-    color:
-        #527d59;
+    font-size: 10px;
 }
-
 
 .reservation-button {
-
-    width:
-        100%;
-
-    max-width:
-        220px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    gap:
-        9px;
-
-    padding:
-        12px 18px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #527d59,
-            #315f4a
-        );
-
-    color:
-        #ffffff;
-
-    border-radius:
-        8px;
-
-    text-decoration:
-        none;
-
-    font-size:
-        13px;
-
-    font-weight:
-        600;
-
-    box-shadow:
-        0 5px 12px
-        rgba(
-            49,
-            95,
-            74,
-            0.18
-        );
-
-    transition:
-        transform 0.2s ease,
-        box-shadow 0.2s ease;
+    width: 100%;
+    max-width: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    padding: 12px 18px;
+    background: linear-gradient(
+        135deg,
+        #527d59,
+        #315f4a
+    );
+    color: #ffffff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
 }
 
-
 .reservation-button:hover {
+    background: #174b27;
 
-    transform:
-        translateY(-2px);
-
-    box-shadow:
-        0 8px 18px
-        rgba(
-            49,
-            95,
-            74,
-            0.25
-        );
+    transform: translateY(-1px);
 }
 
 
 /* =========================================================
-   RECENT ACTIVITY
+   ACTIVITY LIST
 ========================================================= */
 
 .activity-list {
+    padding: 0 13px;
 
-    padding:
-        5px 14px 10px;
+    max-height: 350px;
 
-    max-height:
-        390px;
-
-    overflow-y:
-        auto;
+    overflow-y: auto;
 }
-
 
 .activity-list::-webkit-scrollbar {
-
-    width:
-        5px;
+    width: 4px;
 }
-
 
 .activity-list::-webkit-scrollbar-thumb {
+    background: #d4ddd6;
 
-    background:
-        #d9ddd8;
-
-    border-radius:
-        10px;
+    border-radius: 10px;
 }
-
 
 .activity-item {
+    min-height: 53px;
 
-    min-height:
-        48px;
+    display: flex;
+    align-items: center;
 
-    display:
-        flex;
+    gap: 9px;
 
-    align-items:
-        center;
-
-    gap:
-        10px;
-
-    border-bottom:
-        1px solid #eceae4;
+    border-bottom: 1px solid #edf0ed;
 }
-
 
 .activity-item:last-child {
-
-    border-bottom:
-        none;
+    border-bottom: none;
 }
-
 
 .activity-icon {
+    width: 31px;
+    height: 31px;
 
-    width:
-        29px;
+    min-width: 31px;
 
-    height:
-        29px;
+    border-radius: 50%;
 
-    min-width:
-        29px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    border-radius:
-        50%;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    font-size:
-        12px;
+    font-size: 11px;
 }
-
 
 .activity-icon.confirmed {
-
-    background:
-        #e9f1e6;
-
-    color:
-        #527d59;
+    background: #e8f4e9;
+    color: #3b8a4d;
 }
-
 
 .activity-icon.completed {
-
-    background:
-        #e6f0f4;
-
-    color:
-        #3e7182;
+    background: #e7f1f4;
+    color: #3b7587;
 }
-
 
 .activity-icon.cancelled {
-
-    background:
-        #fbe9e6;
-
-    color:
-        #c65b4e;
+    background: #f9e9e7;
+    color: #c75a4f;
 }
-
 
 .activity-icon.pending {
-
-    background:
-        #fff2df;
-
-    color:
-        #a87932;
+    background: #fff1dc;
+    color: #ba7b20;
 }
-
 
 .activity-icon.default {
-
-    background:
-        #edf1f2;
-
-    color:
-        #54707b;
+    background: #edf1f1;
+    color: #60736b;
 }
-
 
 .activity-content {
+    flex: 1;
 
-    flex:
-        1;
-
-    min-width:
-        0;
+    min-width: 0;
 }
-
 
 .activity-content h4 {
-
-    margin:
-        0 0 4px;
-
-    font-size:
-        12px;
-
-    color:
-        #4d5851;
-
-    font-weight:
-        700;
+    margin: 0 0 4px;
+    font-size: 13px;
+    color: #4d5851;
+    font-weight: 700;
+    line-height: 1.25;
 }
-
 
 .activity-content p {
-
-    margin:
-        0;
-
-    font-size:
-        10px;
-
-    color:
-        #8a9089;
+    margin: 0;
+    font-size: 11px;
+    color: #8a9089;
+    line-height: 1.25;
 }
 
-
 .activity-time {
-
-    font-size:
-        10px;
-
-    color:
-        #969a94;
-
-    white-space:
-        nowrap;
+    font-size: 11px;
+    color: #969a94;
+    white-space: nowrap;
 }
 
 
@@ -1675,231 +1575,123 @@ body {
 ========================================================= */
 
 .empty-state {
+    padding: 30px 15px;
 
-    padding:
-        35px 15px;
+    text-align: center;
 
-    text-align:
-        center;
-
-    color:
-        #92968f;
+    color: #929d96;
 }
-
 
 .empty-state i {
+    display: block;
 
-    font-size:
-        35px;
+    margin-bottom: 8px;
 
-    margin-bottom:
-        12px;
+    font-size: 27px;
 
-    color:
-        #c4c9c4;
+    color: #cbd4cd;
 }
-
 
 .empty-state p {
+    margin: 0;
 
-    margin:
-        0;
-
-    font-size:
-        11px;
+    font-size: 10px;
 }
 
 
 /* =========================================================
-   SUPPORT SECTION
+   FOOTER
 ========================================================= */
 
-.support-card {
+.customer-footer {
+    width: 100%;
 
-    margin-top:
-        14px;
+    min-height: 68px;
 
-    min-height:
-        74px;
+    background: #0d4828;
 
-    position:
-        relative;
+    color: #ffffff;
 
-    overflow:
-        hidden;
+    display: flex;
+    align-items: center;
 
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    padding:
-        0 24px;
-
-    background:
-        linear-gradient(
-            90deg,
-            #fbfaf7,
-            #f4f2eb
-        );
-
-    border:
-        1px solid #e2dfd7;
-
-    border-radius:
-        10px;
-
-    box-shadow:
-        0 3px 10px
-        rgba(
-            70,
-            65,
-            55,
-            0.05
-        );
+    padding: 0 48px;
 }
 
+.customer-footer-inner {
+    width: 100%;
 
-.support-icon {
+    max-width: 1740px;
 
-    width:
-        42px;
+    margin: 0 auto;
 
-    height:
-        42px;
-
-    border-radius:
-        50%;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    background:
-        #eef3ed;
-
-    color:
-        #527d59;
-
-    margin-right:
-        14px;
-
-    font-size:
-        18px;
-
-    position:
-        relative;
-
-    z-index:
-        2;
-
-    flex-shrink:
-        0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
+.customer-footer-left {
+    display: flex;
+    align-items: center;
 
-.support-content {
-
-    position:
-        relative;
-
-    z-index:
-        2;
+    gap: 17px;
 }
 
+.customer-footer-logo {
+    width: 110px;
 
-.support-content h3 {
+    padding-right: 15px;
 
-    margin:
-        0 0 5px;
-
-    font-size:
-        13px;
-
-    color:
-        #4d5851;
+    border-right: 1px solid rgba(255,255,255,0.22);
 }
 
+.customer-footer-logo img {
+    width: 100px;
+    height: auto;
 
-.support-content p {
-
-    margin:
-        0;
-
-    font-size:
-        11px;
-
-    color:
-        #8a9089;
+    display: block;
 }
 
+.customer-footer-tagline {
+    font-size: 11px;
 
-/* =========================================================
-   FARM DECORATION
-========================================================= */
-
-.farm-decoration {
-
-    position:
-        absolute;
-
-    right:
-        0;
-
-    bottom:
-        0;
-
-    height:
-        100%;
-
-    width:
-        55%;
-
-    display:
-        flex;
-
-    justify-content:
-        flex-end;
-
-    align-items:
-        flex-end;
-
-    pointer-events:
-        none;
-
-    z-index:
-        1;
-
-    overflow:
-        hidden;
+    color: rgba(255,255,255,0.9);
 }
 
+.customer-footer-right {
+    display: flex;
+    align-items: center;
 
-.farm-decoration img {
+    gap: 18px;
+}
 
-    width:
-        100%;
+.customer-footer-social {
+    display: flex;
+    align-items: center;
 
-    height:
-        auto;
+    gap: 17px;
+}
 
-    max-height:
-        100%;
+.customer-footer-social a {
+    color: #ffffff;
 
-    object-fit:
-        contain;
+    font-size: 13px;
 
-    object-position:
-        right bottom;
+    text-decoration: none;
 
-    display:
-        block;
+    opacity: 0.95;
+
+    transition: opacity 0.2s ease;
+}
+
+.customer-footer-social a:hover {
+    opacity: 0.7;
+}
+
+.customer-footer-copy {
+    font-size: 11px;
+
+    color: rgba(255,255,255,0.82);
 }
 
 
@@ -1907,361 +1699,897 @@ body {
    RESPONSIVE
 ========================================================= */
 
-@media screen and (max-width: 1300px) {
+@media screen and (max-width: 1200px) {
 
-    .summary-grid {
+    .customer-navbar {
+        padding: 0 30px;
+    }
 
-        grid-template-columns:
-            repeat(2, 1fr);
+    .customer-navbar-center {
+        gap: 25px;
+        margin-left: 30px;
+    }
+
+    .customer-page,
+    .customer-hero-content {
+        width: calc(100% - 60px);
+    }
+
+    .customer-hero-content {
+        padding-left: 60px;
     }
 
     .dashboard-grid {
-
-        grid-template-columns:
-            1fr;
-    }
-}
-
-
-@media screen and (max-width: 1100px) {
-
-    .main-content {
-
-        margin-left:
-            270px;
-
-        width:
-            calc(100% - 270px);
+        grid-template-columns: 1fr;
     }
 }
 
 
 @media screen and (max-width: 900px) {
 
-    .main-content {
+    .customer-navbar {
+        height: auto;
+        min-height: 75px;
 
-        margin-left:
-            0;
+        padding: 12px 22px;
 
-        width:
-            100%;
+        flex-wrap: wrap;
 
-        padding:
-            15px;
+        gap: 10px;
     }
 
-    .customer-dashboard-wrapper {
-
-        border-radius:
-            18px;
+    .customer-navbar-logo {
+        width: auto;
     }
 
-    .customer-account-details,
-    .customer-dropdown-icon {
+    .customer-navbar-logo img {
+        width: 120px;
+    }
 
-        display:
-            none;
+    .customer-navbar-center {
+        order: 3;
+
+        width: 100%;
+
+        height: 42px;
+
+        margin-left: 0;
+
+        gap: 28px;
+
+        justify-content: center;
+    }
+
+    .customer-navbar-right {
+        min-width: auto;
+    }
+
+    .customer-hero {
+        height: 145px;
+    }
+
+    .customer-hero-content {
+        width: calc(100% - 44px);
+        padding-left: 30px;
+    }
+
+    .customer-hero-title {
+        font-size: 27px;
+    }
+
+    .customer-page {
+        width: calc(100% - 44px);
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .customer-footer {
+        padding: 16px 22px;
+    }
+
+    .customer-footer-inner {
+        gap: 15px;
     }
 }
 
 
 @media screen and (max-width: 600px) {
 
-    .customer-dashboard-content {
-
-        padding:
-            18px;
+    .customer-navbar {
+        padding: 10px 15px;
     }
 
-    .summary-grid {
-
-        grid-template-columns:
-            1fr;
+    .customer-account-details,
+    .customer-dropdown-icon {
+        display: none;
     }
 
-    .dashboard-header h1 {
-
-        font-size:
-            22px;
+    .customer-navbar-center {
+        gap: 18px;
+        overflow-x: auto;
+        justify-content: flex-start;
     }
 
-    .customer-dashboard-topbar {
+    .customer-nav-link {
+        font-size: 12px;
+        white-space: nowrap;
+    }
 
-        padding:
-            0 18px;
+    .customer-hero {
+        height: 135px;
+
+        background-position: center;
+    }
+
+    .customer-hero-content {
+        width: calc(100% - 30px);
+        padding-left: 15px;
+    }
+
+    .customer-hero-title {
+        font-size: 25px;
+    }
+
+    .customer-hero-small {
+        font-size: 12px;
+    }
+
+    .customer-hero-subtitle {
+        font-size: 10px;
+    }
+
+    .customer-page {
+        width: calc(100% - 30px);
+
+        padding-top: 12px;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stock-table {
+        min-width: 500px;
+    }
+
+    .customer-footer-inner {
+        flex-direction: column;
+
+        align-items: flex-start;
+    }
+
+    .customer-footer-right {
+        width: 100%;
+
+        justify-content: space-between;
     }
 }
 
-</style>
 
+/* =========================================
+   CUSTOMER DASHBOARD - MAIN OUTER CARD
+========================================= */
+
+.customer-outer-card {
+    width: calc(100% - 30px);
+    max-width: 1740px;
+    margin: 10px auto 10px;
+
+    background: #ffffff;
+    border: 1px solid #dedbd2;
+    border-radius: 26px;
+
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(35, 55, 38, 0.08);
+}
+
+/* HERO BUILT INTO THE OUTER CARD */
+
+.customer-outer-card .customer-hero {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+
+    border-radius: 0;
+    overflow: hidden;
+}
+
+/* PAGE CONTENT INSIDE THE SAME CARD */
+
+.customer-outer-card .customer-page {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+
+    padding: 24px 28px 30px;
+    background: transparent;
+}
+
+/* RESPONSIVE OUTER CARD */
+
+@media (max-width: 768px) {
+    .customer-outer-card {
+        width: calc(100% - 28px);
+        margin: 18px auto 24px;
+        border-radius: 20px;
+    }
+
+    .customer-outer-card .customer-page {
+        padding: 18px 14px 22px;
+    }
+}
+
+@media (max-width: 480px) {
+    .customer-outer-card {
+        width: calc(100% - 20px);
+        border-radius: 16px;
+    }
+
+    .customer-outer-card .customer-page {
+        padding: 14px 10px 18px;
+    }
+}
+
+
+</style>
 
 </head>
 
+<body>
 
-<body class="bg-slate-100 font-sans text-gray-700 antialiased min-h-screen">
+<!-- =========================================================
+     NEW CUSTOMER NAVBAR
+     NO CUSTOMER_PANEL.PHP
+========================================================= -->
 
-<?php include('customer_panel.php'); ?>
-
-
-<!-- =====================================================
-     MAIN CONTENT
-===================================================== -->
-
-<div class="main-content">
+<header class="customer-navbar">
 
 
-    <div class="customer-dashboard-wrapper">
+    <!-- =====================================================
+         LOGO
+    ====================================================== -->
 
+    <div class="customer-navbar-logo">
 
-        <!-- =====================================================
-             CUSTOMER DASHBOARD TOPBAR
-        ===================================================== -->
+        <a href="customer_dashboard.php">
 
-     <div class="customer-dashboard-topbar">
-
-    <div class="customer-page-title">
-        Customer Dashboard
-    </div>
-
-
-    <div class="customer-topbar-right">
-
-
-        <!-- NOTIFICATION -->
-
-        <a
-            href="customer_notifications.php"
-            class="customer-top-notification"
-            title="Notifications"
-        >
-
-            <i class="fa-regular fa-bell"></i>
+            <img
+                src="vdvclogoo.png"
+                alt="VDVC Egg Farm"
+            >
 
         </a>
 
-
-        <!-- DIVIDER -->
-
-        <div class="customer-topbar-divider"></div>
+    </div>
 
 
-        <!-- CUSTOMER PROFILE -->
+    <!-- =====================================================
+         CENTER NAVIGATION
+    ====================================================== -->
+
+    <nav class="customer-navbar-center">
+
+        <a
+            href="customer_dashboard.php"
+            class="customer-nav-link active"
+        >
+            Home
+        </a>
+
+        <a
+            href="customer_reservation.php"
+            class="customer-nav-link"
+        >
+            Reservation
+        </a>
+
+        <a
+            href="customer_history.php"
+            class="customer-nav-link"
+        >
+            History
+        </a>
 
         <a
             href="customer_profile.php"
-            class="customer-top-profile"
+            class="customer-nav-link"
         >
+            Profile
+        </a>
+
+    </nav>
 
 
-            <!-- AVATAR -->
+    <!-- =====================================================
+         RIGHT SIDE
+    ====================================================== -->
 
-            <div class="customer-avatar">
-
-                <i class="fa-solid fa-user"></i>
-
-            </div>
+    <div class="customer-navbar-right">
 
 
-            <!-- CUSTOMER DETAILS -->
+        <!-- =================================================
+             NOTIFICATION
+        ================================================== -->
 
-            <div class="customer-account-details">
+        <div class="customer-notification-wrapper">
 
-                <span class="customer-top-name">
-                    Customer
-                </span>
+            <button
+                type="button"
+                class="customer-top-notification"
+                title="Notifications"
+                onclick="
+                    event.stopPropagation();
+                    toggleCustomerNotificationDropdown();
+                "
+            >
+
+                <i class="fa-regular fa-bell"></i>
 
 
-                <div class="customer-date-time">
+                <?php if ($unread_notifications > 0): ?>
 
-                    <span
-                        class="customer-date"
-                        id="customer-live-date"
-                    >
+                    <span class="customer-notification-badge">
+
                         <?php
-                        echo date('F j, Y');
+                        echo $unread_notifications > 99
+                            ? '99+'
+                            : $unread_notifications;
                         ?>
+
                     </span>
 
+                <?php endif; ?>
 
-                    <span
-                        class="customer-time"
-                        id="customer-live-time"
+            </button>
+
+
+            <!-- =============================================
+                 NOTIFICATION DROPDOWN
+            ============================================== -->
+
+            <div
+                class="customer-notification-dropdown hidden"
+                id="customerNotificationDropdown"
+            >
+
+                <div class="customer-notification-dropdown-header">
+
+                    <div class="customer-panel-title-group">
+
+                        <div class="customer-panel-title-icon">
+
+                            <i class="fa-solid fa-bell"></i>
+
+                        </div>
+
+                        <div class="customer-dashboard-panel-title">
+
+                            Notifications
+
+                        </div>
+
+                    </div>
+
+
+                    <a
+                        href="javascript:void(0)"
+                        class="customer-mark-all-link"
+                        onclick="markAllCustomerAsRead(event)"
                     >
-                        <?php
-                        echo date('h:i:s A');
-                        ?>
-                    </span>
+
+                        Mark All as Read
+
+                    </a>
+
+                </div>
+
+
+                <div
+                    class="customer-notification-list"
+                    id="customerNotificationList"
+                >
+
+                    <!--
+                        Notifications remain loaded
+                        through your existing JavaScript.
+                    -->
 
                 </div>
 
             </div>
 
+        </div>
 
-            <!-- DROPDOWN -->
 
-            <div class="customer-dropdown-icon">
+     
+<!-- CUSTOMER ACCOUNT WITH DROPDOWN -->
 
-                <i class="fa-solid fa-chevron-down"></i>
+<div class="customer-account-wrapper">
+
+    <div class="customer-account-link">
+
+        <div class="customer-avatar">
+            <i class="fa-solid fa-user"></i>
+        </div>
+
+        <div class="customer-account-details">
+
+            <span class="customer-top-name">
+                <?php
+                echo htmlspecialchars(
+                    $customer_name,
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
+                ?>
+            </span>
+
+            <div class="customer-date-time">
+
+                <span
+                    class="customer-date"
+                    id="customer-live-date"
+                >
+                    <?php echo date('F j, Y'); ?>
+                </span>
+
+                <span
+                    class="customer-time"
+                    id="customer-live-time"
+                >
+                    <?php echo date('h:i:s A'); ?>
+                </span>
 
             </div>
 
+        </div>
 
-        </a>
+                </div>
+
+    <!-- DROPDOWN ARROW -->
+
+    <button
+        type="button"
+        class="customer-account-toggle"
+        id="customerAccountToggle"
+        aria-label="Open account menu"
+        aria-expanded="false"
+        aria-controls="customerAccountDropdown"
+        onclick="toggleCustomerAccountDropdown(event)"
+    >
+        <i class="fa-solid fa-chevron-down"></i>
+    </button>
+
+    <!-- ACCOUNT DROPDOWN -->
+
+    <div
+        class="customer-account-dropdown hidden"
+        id="customerAccountDropdown"
+    >
+
+        <button
+            type="button"
+            class="customer-logout-option"
+            onclick="openCustomerLogoutModal()"
+        >
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span>Logout</span>
+        </button>
 
     </div>
 
 </div>
 
 
-        <!-- =====================================================
-             DASHBOARD CONTENT
-        ===================================================== -->
+    </div>
 
-        <div class="customer-dashboard-content">
+</header>
 
 
-            <!-- =====================================================
-                 DASHBOARD HEADER
-            ===================================================== -->
 
-            <div class="dashboard-header">
+<!-- =========================================================
+     WELCOME HERO
+========================================================= -->
+<div class="customer-outer-card">
+<section class="customer-hero">
+
+    <div class="customer-hero-content">
+
+     
 
 
-                <div class="greeting-wrapper">
+        <h1 class="customer-hero-title">
+ Welcome back,
+            <?php
+            echo htmlspecialchars($first_name);
+            ?>!
+
+        </h1>
 
 
-                    <div class="greeting-icon">
+        <p class="customer-hero-subtitle">
 
-                        <i
-                            class="
-                            fa-solid
-                            fa-leaf
-                            "
-                        ></i>
+            Fresh eggs, trusted farm, better for you.
+
+        </p>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     MAIN CUSTOMER CONTENT
+========================================================= -->
+
+<main class="customer-page">
+
+
+    <!-- =====================================================
+         SUMMARY CARDS
+    ====================================================== -->
+
+    <section class="summary-grid">
+
+
+        <!-- ACCOUNT TYPE -->
+
+        <div class="summary-card">
+
+            <div class="summary-icon account">
+
+                <i class="fa-regular fa-user"></i>
+
+            </div>
+
+
+            <div class="summary-content">
+
+                <span>
+                    Account Type
+                </span>
+
+                <h2>
+                    Customer
+                </h2>
+
+                <small>
+                    Regular Customer
+                </small>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- TOTAL RESERVATIONS -->
+
+        <div class="summary-card">
+
+            <div class="summary-icon reservation">
+
+                <i class="fa-regular fa-calendar-check"></i>
+
+            </div>
+
+
+            <div class="summary-content">
+
+                <span>
+                    Total Reservations
+                </span>
+
+                <h2>
+
+                    <?php
+                    echo $total_reservations;
+                    ?>
+
+                </h2>
+
+                <small>
+                    All time
+                </small>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- TRAYS ORDERED -->
+
+        <div class="summary-card">
+
+            <div class="summary-icon trays">
+
+                <i class="fa-solid fa-cube"></i>
+
+            </div>
+
+
+            <div class="summary-content">
+
+                <span>
+                    Trays Ordered
+                </span>
+
+                <h2>
+
+                    <?php
+                    echo $total_trays;
+                    ?>
+
+                </h2>
+
+                <small>
+                    All time
+                </small>
+
+            </div>
+
+        </div>
+
+
+    </section>
+
+
+
+    <!-- =====================================================
+         MAIN DASHBOARD GRID
+    ====================================================== -->
+
+    <section class="dashboard-grid">
+
+
+        <!-- =================================================
+             AVAILABLE EGG STOCKS
+        ================================================== -->
+
+        <div class="dashboard-card">
+
+
+            <!-- CARD HEADER -->
+
+            <div class="card-header">
+
+                <div class="card-title">
+
+                    <div class="card-title-icon">
+
+                        <i class="fa-solid fa-egg"></i>
 
                     </div>
 
 
-                    <div class="greeting-text-container">
+                    <div class="card-title-text">
 
-
-                        <h1>
-
-                            <?php
-                            echo $greeting;
-                            ?>,
-
-                            <?php
-                            echo htmlspecialchars(
-                                $first_name
-                            );
-                            ?>!
-
-                            <span>👋</span>
-
-                        </h1>
-
+                        <h2>
+                            Available Egg Stocks
+                        </h2>
 
                         <p>
-
-                            Here's a quick overview
-                            of your account.
-
+                            Real-time availability for all egg sizes.
                         </p>
 
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- STOCK TABLE -->
+
+            <div class="stock-table-container">
+
+
+                <?php if (count($egg_stocks) > 0) { ?>
+
+
+                    <table class="stock-table">
+
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Egg Size
+                                </th>
+
+                                <th>
+                                    Available Stock
+                                </th>
+
+                                <th>
+                                    Unit
+                                </th>
+
+                                <th>
+                                    Status
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+
+                            <?php foreach ($egg_stocks as $stock) { ?>
+
+
+                                <?php
+
+                                $available_stock =
+                                    isset($stock['available_stock'])
+                                    ? $stock['available_stock']
+                                    : 0;
+
+                                ?>
+
+
+                                <tr>
+
+
+                                    <!-- EGG SIZE -->
+
+                                    <td>
+
+                                        <strong>
+
+                                            <?php
+                                            echo htmlspecialchars(
+                                                $stock['egg_size']
+                                            );
+                                            ?>
+
+                                        </strong>
+
+                                    </td>
+
+
+
+                                    <!-- AVAILABLE STOCK -->
+
+                                    <td>
+
+                                        <span class="stock-number">
+
+                                            <?php
+                                            echo $available_stock;
+                                            ?>
+
+                                        </span>
+
+                                    </td>
+
+
+
+                                    <!-- UNIT -->
+
+                                    <td>
+
+                                        trays
+
+                                    </td>
+
+
+
+                                    <!-- STATUS -->
+
+                                    <td>
+
+
+                                        <?php if ($available_stock > 0) { ?>
+
+
+                                            <span class="stock-status">
+
+                                                <span class="status-dot"></span>
+
+                                                Available
+
+                                            </span>
+
+
+                                        <?php } else { ?>
+
+
+                                            <span
+                                                style="
+                                                    color:#c65b4e;
+                                                    font-size:9px;
+                                                    font-weight:700;
+                                                "
+                                            >
+
+                                                <i
+                                                    class="fa-solid fa-circle"
+                                                    style="
+                                                        font-size:6px;
+                                                    "
+                                                ></i>
+
+                                                Out of Stock
+
+                                            </span>
+
+
+                                        <?php } ?>
+
+
+                                    </td>
+
+
+                                </tr>
+
+
+                            <?php } ?>
+
+
+                        </tbody>
+
+
+                    </table>
+
+
+                <?php } else { ?>
+
+
+                    <div class="empty-state">
+
+                        <i class="fa-solid fa-box-open"></i>
+
+                        <p>
+                            No egg stocks are currently available.
+                        </p>
 
                     </div>
 
 
-                </div>
+                <?php } ?>
 
 
             </div>
 
 
- 
 
- 
+            <!-- STOCK FOOTER -->
 
-        <!-- =====================================================
-             SUMMARY CARDS
-        ===================================================== -->
-
-        <div class="summary-grid">
+            <div class="stock-footer">
 
 
-            <!-- ACCOUNT TYPE -->
+                <div class="stock-info">
 
-            <div class="summary-card">
+                    <i class="fa-solid fa-circle-info"></i>
 
-                <div class="summary-icon account">
-
-                    <i class="fa-regular fa-user"></i>
+                    <span>
+                        Stocks are updated in real-time.
+                        Reserve now to secure your preferred stock.
+                    </span>
 
                 </div>
 
 
-                <div class="summary-content">
+                <a
+                    href="customer_reservation.php"
+                    class="reservation-button"
+                >
 
-                    <span>Account Type</span>
+                    <i class="fa-regular fa-calendar-plus"></i>
 
-                    <h2>Customer</h2>
+                    Make a Reservation
 
-                    <small>Regular Customer</small>
+                </a>
 
-                </div>
-
-            </div>
-
-
-            <!-- TOTAL RESERVATIONS -->
-
-            <div class="summary-card">
-
-                <div class="summary-icon reservation">
-
-                    <i class="fa-regular fa-calendar-check"></i>
-
-                </div>
-
-
-                <div class="summary-content">
-
-                    <span>Total Reservations</span>
-
-                    <h2>
-                        <?php echo $total_reservations; ?>
-                    </h2>
-
-                    <small>All time</small>
-
-                </div>
-
-            </div>
-
-
-            <!-- TRAYS ORDERED -->
-
-            <div class="summary-card">
-
-                <div class="summary-icon trays">
-
-                    <i class="fa-solid fa-cube"></i>
-
-                </div>
-
-
-                <div class="summary-content">
-
-                    <span>Trays Ordered</span>
-
-                    <h2>
-                        <?php echo $total_trays; ?>
-                    </h2>
-
-                    <small>All time</small>
-
-                </div>
 
             </div>
 
@@ -2269,452 +2597,141 @@ body {
         </div>
 
 
-        <!-- =====================================================
-             MAIN DASHBOARD CONTENT
-        ===================================================== -->
 
-        <div class="dashboard-grid">
+        <!-- =================================================
+             RECENT ACTIVITY
+        ================================================== -->
 
-
-            <!-- =====================================================
-                 AVAILABLE EGG STOCKS
-            ===================================================== -->
-
-            <div class="dashboard-card">
+        <div class="dashboard-card">
 
 
-                <div class="card-header">
+            <!-- CARD HEADER -->
 
-                    <div class="card-title">
-
-                        <div class="card-title-icon">
-
-                            <i class="fa-solid fa-egg"></i>
-
-                        </div>
+            <div class="card-header">
 
 
-                        <div class="card-title-text">
+                <div class="card-title">
 
-                            <h2>
-                                Available Egg Stocks
-                            </h2>
+                    <div class="card-title-icon">
 
-                            <p>
-                                Real-time availability for all egg sizes.
-                            </p>
+                        <i class="fa-solid fa-clock-rotate-left"></i>
 
-                        </div>
+                    </div>
+
+
+                    <div class="card-title-text">
+
+                        <h2>
+                            Recent Activity
+                        </h2>
 
                     </div>
 
                 </div>
 
 
-                <!-- STOCK TABLE -->
+                <a
+                    href="customer_history.php"
+                    class="view-all-btn"
+                >
 
-                <div class="stock-table-container">
+                    View All
 
-
-                    <?php if (count($egg_stocks) > 0) { ?>
-
-
-                        <table class="stock-table">
-
-
-                            <thead>
-
-                                <tr>
-
-                                    <th>
-                                        Egg Size
-                                    </th>
-
-                                    <th>
-                                        Available Stock
-                                    </th>
-
-                                    <th>
-                                        Unit
-                                    </th>
-
-                                    <th>
-                                        Status
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-
-                            <tbody>
-
-
-                                <?php foreach ($egg_stocks as $stock) { ?>
-
-
-                                    <?php
-
-                                    $available_stock =
-                                        isset($stock['available_stock'])
-                                        ? $stock['available_stock']
-                                        : 0;
-
-                                    ?>
-
-
-                                    <tr>
-
-                                        <td>
-
-                                            <strong>
-                                                <?php
-                                                echo htmlspecialchars(
-                                                    $stock['egg_size']
-                                                );
-                                                ?>
-                                            </strong>
-
-                                        </td>
-
-
-                                        <td>
-
-                                            <span class="stock-number">
-
-                                                <?php
-                                                echo $available_stock;
-                                                ?>
-
-                                            </span>
-
-                                        </td>
-
-
-                                        <td>
-                                            trays
-                                        </td>
-
-
-                                        <td>
-
-                                            <?php if ($available_stock > 0) { ?>
-
-                                                <span class="stock-status">
-
-                                                    <span
-                                                        class="status-dot"
-                                                    ></span>
-
-                                                    Available
-
-                                                </span>
-
-                                            <?php } else { ?>
-
-                                                <span
-                                                    style="
-                                                        color:#c65b4e;
-                                                        font-size:11px;
-                                                        font-weight:500;
-                                                    "
-                                                >
-
-                                                    <i
-                                                        class="
-                                                        fa-solid
-                                                        fa-circle
-                                                        "
-                                                        style="
-                                                            font-size:7px;
-                                                        "
-                                                    ></i>
-
-                                                    Out of Stock
-
-                                                </span>
-
-                                            <?php } ?>
-
-                                        </td>
-
-                                    </tr>
-
-
-                                <?php } ?>
-
-
-                            </tbody>
-
-
-                        </table>
-
-
-                    <?php } else { ?>
-
-
-                        <div class="empty-state">
-
-                            <i
-                                class="
-                                fa-solid
-                                fa-box-open
-                                "
-                            ></i>
-
-                            <p>
-                                No egg stocks are currently available.
-                            </p>
-
-                        </div>
-
-
-                    <?php } ?>
-
-
-                </div>
-
-
-                <!-- STOCK FOOTER -->
-
-                <div class="stock-footer">
-
-
-                    <div class="stock-info">
-
-                        <i
-                            class="
-                            fa-solid
-                            fa-circle-info
-                            "
-                        ></i>
-
-                        <span>
-                            Stocks are updated in real-time.
-                            Reserve now to secure your preferred stock.
-                        </span>
-
-                    </div>
-
-
-                    <a
-                        href="customer_reservation.php"
-                        class="reservation-button"
-                    >
-
-                        <i
-                            class="
-                            fa-regular
-                            fa-calendar-plus
-                            "
-                        ></i>
-
-                        Make a Reservation
-
-                    </a>
-
-
-                </div>
+                </a>
 
 
             </div>
 
 
-            <!-- =====================================================
-                 RECENT ACTIVITY
-            ===================================================== -->
 
-            <div class="dashboard-card">
+            <!-- ACTIVITY -->
 
-
-                <div class="card-header">
+            <div class="activity-list">
 
 
-                    <div class="card-title">
+                <?php if (count($recent_activities) > 0) { ?>
 
 
-                        <div class="card-title-icon">
-
-                            <i
-                                class="
-                                fa-solid
-                                fa-clock-rotate-left
-                                "
-                            ></i>
-
-                        </div>
-
-
-                        <div class="card-title-text">
-
-                            <h2>
-                                Recent Activity
-                            </h2>
-
-                        </div>
-
-
-                    </div>
-
-
-                    <a
-                        href="customer_history.php"
-                        class="view-all-btn"
-                    >
-
-                        View All
-
-                    </a>
-
-
-                </div>
-
-
-                <div class="activity-list">
-
-
-                    <?php if (count($recent_activities) > 0) { ?>
+                    <?php foreach ($recent_activities as $activity) { ?>
 
 
                         <?php
-                        foreach (
-                            $recent_activities
-                            as $activity
-                        ) {
+
+                        $icon_data =
+                            getActivityIcon(
+                                $activity['status']
+                            );
+
                         ?>
 
 
-                            <?php
-
-                            $icon_data =
-                                getActivityIcon(
-                                    $activity['status']
-                                );
-
-                            ?>
+                        <div class="activity-item">
 
 
-                            <div class="activity-item">
+                            <!-- ICON -->
 
-
-                                <!-- ACTIVITY ICON -->
-
-                                <div
-                                    class="
+                            <div
+                                class="
                                     activity-icon
                                     <?php
                                     echo $icon_data['class'];
                                     ?>
-                                    "
-                                >
+                                "
+                            >
 
-                                    <i
-                                        class="
+                                <i
+                                    class="
                                         fa-solid
                                         <?php
                                         echo $icon_data['icon'];
                                         ?>
-                                        "
-                                    ></i>
+                                    "
+                                ></i>
 
-                                </div>
-
-
-                                <!-- ACTIVITY CONTENT -->
-
-                                <div class="activity-content">
+                            </div>
 
 
-                                    <h4>
 
-                                        Reservation
-                                        <?php
-                                        echo htmlspecialchars(
-                                            $activity[
-                                                'reservation_code'
-                                            ]
-                                        );
-                                        ?>
+                            <!-- CONTENT -->
 
-                                        <?php
-                                        echo htmlspecialchars(
-                                            strtolower(
-                                                $activity['status']
-                                            )
-                                        );
-                                        ?>
-
-                                    </h4>
+                            <div class="activity-content">
 
 
-                                    <p>
+                                <h4>
 
-                                        <?php
+                                    Reservation
+                                    <?php
+                                    echo htmlspecialchars(
+                                        $activity['reservation_code']
+                                    );
+                                    ?>
 
-                                        if (
-                                            !empty(
-                                                $activity[
-                                                    'reserved_at'
-                                                ]
-                                            )
-                                        ) {
-
-                                            echo date(
-                                                "M d, Y",
-                                                strtotime(
-                                                    $activity[
-                                                        'reserved_at'
-                                                    ]
-                                                )
-                                            );
-
-                                        }
-
-                                        ?>
-
-                                        &nbsp;•&nbsp;
-
-                                        <?php
-                                        echo $activity['quantity'];
-                                        ?>
-
-                                        trays
-
-                                        (
-                                        <?php
-                                        echo htmlspecialchars(
-                                            $activity['egg_size']
-                                        );
-                                        ?>
+                                    <?php
+                                    echo htmlspecialchars(
+                                        strtolower(
+                                            $activity['status']
                                         )
+                                    );
+                                    ?>
 
-                                    </p>
+                                </h4>
 
 
-                                </div>
-
-
-                                <!-- TIME -->
-
-                                <div class="activity-time">
+                                <p>
 
 
                                     <?php
 
                                     if (
                                         !empty(
-                                            $activity[
-                                                'reserved_at'
-                                            ]
+                                            $activity['reserved_at']
                                         )
                                     ) {
 
                                         echo date(
-                                            "g:i A",
+                                            "M d, Y",
                                             strtotime(
-                                                $activity[
-                                                    'reserved_at'
-                                                ]
+                                                $activity['reserved_at']
                                             )
                                         );
 
@@ -2723,30 +2740,58 @@ body {
                                     ?>
 
 
-                                </div>
+                                    &nbsp;•&nbsp;
+
+
+                                    <?php
+                                    echo $activity['quantity'];
+                                    ?>
+
+                                    trays
+
+
+                                    (
+                                    <?php
+                                    echo htmlspecialchars(
+                                        $activity['egg_size']
+                                    );
+                                    ?>
+                                    )
+
+                                </p>
 
 
                             </div>
 
 
-                        <?php } ?>
+
+                            <!-- TIME -->
+
+                            <div class="activity-time">
 
 
-                    <?php } else { ?>
+                                <?php
+
+                                if (
+                                    !empty(
+                                        $activity['reserved_at']
+                                    )
+                                ) {
+
+                                    echo date(
+                                        "g:i A",
+                                        strtotime(
+                                            $activity['reserved_at']
+                                        )
+                                    );
+
+                                }
+
+                                ?>
 
 
-                        <div class="empty-state">
+                            </div>
 
-                            <i
-                                class="
-                                fa-regular
-                                fa-calendar
-                                "
-                            ></i>
-
-                            <p>
-                                No recent reservation activity.
-                            </p>
 
                         </div>
 
@@ -2754,7 +2799,21 @@ body {
                     <?php } ?>
 
 
-                </div>
+                <?php } else { ?>
+
+
+                    <div class="empty-state">
+
+                        <i class="fa-regular fa-calendar"></i>
+
+                        <p>
+                            No recent reservation activity.
+                        </p>
+
+                    </div>
+
+
+                <?php } ?>
 
 
             </div>
@@ -2763,56 +2822,161 @@ body {
         </div>
 
 
-        <!-- =====================================================
-             SUPPORT CARD
-        ===================================================== -->
-
-        <div class="support-card">
+    </section>
 
 
-            <div class="support-icon">
+</main>
+                </div>
 
-                <i
-                    class="
-                    fa-solid
-                    fa-house
-                    "
-                ></i>
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer class="customer-footer">
+
+
+    <div class="customer-footer-inner">
+
+
+        <!-- LEFT -->
+
+        <div class="customer-footer-left">
+
+
+            <div class="customer-footer-logo">
+
+                <img
+                    src="vdvclogoo.png"
+                    alt="VDVC Egg Farm"
+                >
 
             </div>
 
 
-            <div class="support-content">
+            <div class="customer-footer-tagline">
 
-                <h3>
-                    Thank you for supporting local farms!
-                </h3>
-
-                <p>
-                    We appreciate your trust and support.
-                </p>
+                Fresh Eggs. Trusted Farm. Better for You.
 
             </div>
 
 
-         <!-- FARM IMAGE DECORATION -->
+        </div>
 
-<div class="farm-decoration">
 
-    <img
-        src="/EggFarm/dashboard_footer.png"
-        alt="Egg Farm Landscape"
-    >
 
-</div>
+        <!-- RIGHT -->
+
+        <div class="customer-footer-right">
+
+
+            <div class="customer-footer-social">
+
+                <a
+                    href="#"
+                    aria-label="Facebook"
+                >
+                    <i class="fa-brands fa-facebook-f"></i>
+                </a>
+
+
+                <a
+                    href="#"
+                    aria-label="Instagram"
+                >
+                    <i class="fa-brands fa-instagram"></i>
+                </a>
+
+
+                <a
+                    href="#"
+                    aria-label="YouTube"
+                >
+                    <i class="fa-brands fa-youtube"></i>
+                </a>
+
+            </div>
+
+
+            <div class="customer-footer-copy">
+
+                © 2026 VDVC Egg Farm.
+                All rights reserved.
+
+            </div>
+
 
         </div>
 
 
     </div>
 
+</footer>
 
+
+<!-- LOGOUT CONFIRMATION MODAL -->
+
+<div
+    class="customer-logout-overlay hidden"
+    id="customerLogoutModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="customerLogoutTitle"
+    aria-describedby="customerLogoutMessage"
+>
+    <div class="customer-logout-modal">
+
+        <div class="customer-logout-icon">
+            <i class="fa-solid fa-right-from-bracket"></i>
+        </div>
+
+        <h2 id="customerLogoutTitle">Confirm Logout</h2>
+
+        <p id="customerLogoutMessage">
+            Are you sure you want to logout?
+        </p>
+
+        <div class="customer-logout-actions">
+
+            <button
+                type="button"
+                class="customer-logout-cancel"
+                onclick="closeCustomerLogoutModal()"
+            >
+                Cancel
+            </button>
+
+            <form method="POST" action="customer_dashboard.php">
+                <input
+                    type="hidden"
+                    name="customer_logout"
+                    value="1"
+                >
+
+                <input
+                    type="hidden"
+                    name="logout_token"
+                    value="<?php echo htmlspecialchars(
+                        $_SESSION['customer_logout_token'],
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ); ?>"
+                >
+
+                <button
+                    type="submit"
+                    class="customer-logout-confirm"
+                >
+                    Yes, Logout
+                </button>
+            </form>
+
+        </div>
+
+    </div>
 </div>
+
+
 <script>
 function updateCustomerDateTime() {
 
@@ -2862,6 +3026,327 @@ setInterval(
     updateCustomerDateTime,
     1000
 );
+
+/* =========================================================
+   CUSTOMER NOTIFICATION DROPDOWN
+========================================================= */
+
+var customerNotificationDropdown = null;
+var isCustomerDropdownOpen = false;
+
+function toggleCustomerNotificationDropdown()
+{
+    if (!customerNotificationDropdown) {
+        customerNotificationDropdown = document.getElementById('customerNotificationDropdown');
+    }
+
+    if (customerNotificationDropdown) {
+        isCustomerDropdownOpen = !isCustomerDropdownOpen;
+
+        if (isCustomerDropdownOpen) {
+            customerNotificationDropdown.classList.remove('hidden');
+            loadCustomerNotifications();
+        } else {
+            customerNotificationDropdown.classList.add('hidden');
+        }
+    }
+}
+
+function closeCustomerNotificationDropdown()
+{
+    if (customerNotificationDropdown && isCustomerDropdownOpen) {
+        customerNotificationDropdown.classList.add('hidden');
+        isCustomerDropdownOpen = false;
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    if (customerNotificationDropdown && isCustomerDropdownOpen) {
+        var notificationButton = document.querySelector('.customer-top-notification');
+        var notificationContainer = customerNotificationDropdown.parentElement;
+        if (!notificationContainer.contains(event.target)) {
+            closeCustomerNotificationDropdown();
+        }
+    }
+});
+
+function loadCustomerNotifications()
+{
+    var notificationList = document.getElementById('customerNotificationList');
+    if (!notificationList) return;
+
+    // Show loading state
+    notificationList.innerHTML = '<div class="customer-notification-empty"><i class="fa-solid fa-spinner fa-spin"></i><p>Loading notifications...</p></div>';
+
+    // Fetch notifications from the dedicated notifications page
+    fetch('customer_notifications.php')
+        .then(function(response) {
+            return response.text();
+        })
+        .then(function(html) {
+            // Parse the HTML to extract notification data
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(html, 'text/html');
+
+            // Extract notification items from the dedicated page
+            var notificationItems = doc.querySelectorAll('.notification-item');
+
+            if (notificationItems.length > 0) {
+                var notificationsHtml = '';
+                notificationItems.forEach(function(item) {
+                    var isUnread = item.classList.contains('unread');
+                    var iconElement = item.querySelector('.notification-icon');
+                    var iconClass = 'info';
+                    var iconHtml = '<div class="customer-notification-icon info"><i class="fa-solid fa-bell"></i></div>';
+
+                    if (iconElement) {
+                        if (iconElement.classList.contains('success')) {
+                            iconClass = 'success';
+                            iconHtml = '<div class="customer-notification-icon success"><i class="fa-solid fa-check"></i></div>';
+                        } else if (iconElement.classList.contains('alert')) {
+                            iconClass = 'alert';
+                            iconHtml = '<div class="customer-notification-icon alert"><i class="fa-solid fa-exclamation"></i></div>';
+                        } else if (iconElement.classList.contains('warning')) {
+                            iconClass = 'warning';
+                            iconHtml = '<div class="customer-notification-icon warning"><i class="fa-solid fa-circle-exclamation"></i></div>';
+                        } else {
+                            iconHtml = iconElement.outerHTML;
+                        }
+                    }
+
+                    var titleElement = item.querySelector('.notification-title');
+                    var title = titleElement ? titleElement.textContent : 'Notification';
+
+                    var descElement = item.querySelector('.notification-desc');
+                    var description = descElement ? descElement.textContent : '';
+
+                    var timeElement = item.querySelector('.notification-time');
+                    var time = timeElement ? timeElement.textContent : '';
+
+                    var notificationId = item.getAttribute('onclick') ? item.getAttribute('onclick').match(/\d+/) : null;
+
+                    notificationsHtml += '<div class="customer-notification-item ' + (isUnread ? 'unread' : 'read') + '">';
+                    notificationsHtml += iconHtml;
+                    notificationsHtml += '<div class="customer-notification-content">';
+                    notificationsHtml += '<div class="customer-notification-title">' + title + '</div>';
+                    notificationsHtml += '<div class="customer-notification-description">' + description + '</div>';
+                    notificationsHtml += '<div class="customer-notification-time">' + time + '</div>';
+                    notificationsHtml += '</div>';
+                    if (notificationId && isUnread) {
+                        notificationsHtml += '<button class="customer-mark-read-btn" onclick="markCustomerAsRead(' + notificationId + ', this)">Mark as Read</button>';
+                    }
+                    notificationsHtml += '</div>';
+                });
+
+                notificationList.innerHTML = notificationsHtml;
+            } else {
+                notificationList.innerHTML = '<div class="customer-notification-empty"><i class="fa-regular fa-bell-slash"></i><p>No notifications</p></div>';
+            }
+        })
+        .catch(function(error) {
+            notificationList.innerHTML = '<div class="customer-notification-empty"><i class="fa-solid fa-exclamation-circle"></i><p>Failed to load notifications</p></div>';
+        });
+}
+
+function markCustomerAsRead(notificationId, buttonElement)
+{
+    var formData = new FormData();
+    formData.append('mark_read', '1');
+    formData.append('notification_id', notificationId);
+
+    fetch('customer_notifications.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            // Update UI
+            var notificationItem = buttonElement.closest('.customer-notification-item');
+            if (notificationItem) {
+                notificationItem.classList.remove('unread');
+                notificationItem.classList.add('read');
+                buttonElement.remove();
+
+                // Update badge
+                var badge = document.querySelector('.customer-notification-badge');
+                if (badge) {
+                    var currentBadge = parseInt(badge.textContent);
+                    if (!isNaN(currentBadge) && currentBadge > 0) {
+                        if (currentBadge > 1) {
+                            badge.textContent = currentBadge - 1;
+                        } else {
+                            badge.remove();
+                        }
+                    }
+                }
+            }
+        }
+    })
+    .catch(function(error) {
+        console.error('Failed to mark notification as read:', error);
+    });
+}
+
+function markAllCustomerAsRead(event)
+{
+    event.preventDefault();
+    event.stopPropagation();
+
+    var formData = new FormData();
+    formData.append('mark_all_read', '1');
+
+    fetch('customer_notifications.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(response) {
+        return response.text();
+    })
+    .then(function() {
+        // Reload page to update all notification states
+        window.location.reload();
+    })
+    .catch(function(error) {
+        console.error('Failed to mark all notifications as read:', error);
+    });
+}
+
+
+/* =========================================================
+   CUSTOMER ACCOUNT DROPDOWN
+========================================================= */
+
+function toggleCustomerAccountDropdown(event) {
+    event.stopPropagation();
+
+    var dropdown = document.getElementById(
+        'customerAccountDropdown'
+    );
+
+    var toggle = document.getElementById(
+        'customerAccountToggle'
+    );
+
+    if (!dropdown || !toggle) {
+        return;
+    }
+
+    var isOpen = !dropdown.classList.contains('hidden');
+
+    if (isOpen) {
+        dropdown.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+    } else {
+        dropdown.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+    }
+}
+
+function closeCustomerAccountDropdown() {
+    var dropdown = document.getElementById(
+        'customerAccountDropdown'
+    );
+
+    var toggle = document.getElementById(
+        'customerAccountToggle'
+    );
+
+    if (dropdown) {
+        dropdown.classList.add('hidden');
+    }
+
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+}
+
+/* =========================================================
+   LOGOUT CONFIRMATION MODAL
+========================================================= */
+
+function openCustomerLogoutModal() {
+    closeCustomerAccountDropdown();
+
+    var modal = document.getElementById(
+        'customerLogoutModal'
+    );
+
+    if (modal) {
+        modal.classList.remove('hidden');
+
+        var cancelButton = modal.querySelector(
+            '.customer-logout-cancel'
+        );
+
+        if (cancelButton) {
+            cancelButton.focus();
+        }
+    }
+}
+
+function closeCustomerLogoutModal() {
+    var modal = document.getElementById(
+        'customerLogoutModal'
+    );
+
+    if (modal) {
+        modal.classList.add('hidden');
+
+        var toggle = document.getElementById(
+            'customerAccountToggle'
+        );
+
+        if (toggle) {
+            toggle.focus();
+        }
+    }
+}
+
+/* =========================================================
+   CLOSE MENUS WHEN CLICKING OUTSIDE
+========================================================= */
+
+document.addEventListener('click', function(event) {
+
+    var accountWrapper = document.querySelector(
+        '.customer-account-wrapper'
+    );
+
+    if (
+        accountWrapper &&
+        !accountWrapper.contains(event.target)
+    ) {
+        closeCustomerAccountDropdown();
+    }
+
+    var modal = document.getElementById(
+        'customerLogoutModal'
+    );
+
+    if (
+        modal &&
+        event.target === modal
+    ) {
+        closeCustomerLogoutModal();
+    }
+});
+
+/* =========================================================
+   CLOSE LOGOUT MODAL WITH ESCAPE
+========================================================= */
+
+document.addEventListener('keydown', function(event) {
+
+    if (event.key === 'Escape') {
+        closeCustomerLogoutModal();
+        closeCustomerAccountDropdown();
+    }
+});
+
 </script>
 
 </body>
